@@ -18,6 +18,8 @@ class Restaurant(models.Model):
 
 
 class User(AbstractBaseUser):
+    USERNAME_FIELD = 'slack_id'
+
     slack_id = models.CharField(max_length=20)
     favorite_restaurants = models.ManyToManyField(Restaurant)
 
@@ -38,6 +40,9 @@ class Meal(models.Model):
         ordering = '-date', 'restaurant', 'id'
         default_related_name = 'meals'
 
+    def __str__(self):
+        return f'Meal: {self.restaurant.acronym} - {self.name} ({self.price})'
+
 
 class Selection(models.Model):
     recommended = models.BooleanField(default=False)
@@ -46,3 +51,6 @@ class Selection(models.Model):
 
     class Meta:
         default_related_name = 'selections'
+
+    def __str__(self):
+        return f'{self.user.get_username()} - {self.meal.name}' + ('(recommended)' if self.recommended else '')
