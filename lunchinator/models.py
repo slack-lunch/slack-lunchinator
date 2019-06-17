@@ -53,4 +53,4 @@ class Selection(models.Model):
         default_related_name = 'selections'
 
     def __str__(self):
-        return f'{self.user.get_username()} - {self.meal.name}' + ('(recommended)' if self.recommended else '')
+        return f'Selection: {self.user.get_username()} - {self.meal.name}' + (' (rec)' if self.recommended else '')
