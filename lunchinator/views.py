@@ -36,14 +36,12 @@ def endpoint(request: HttpRequest):
                     cmd.recommend(userid)
                 elif operation == "restaurants":
                     cmd.list_restaurants()
-                elif operation == "clearrestaurants":
-                    cmd.clear_restaurants()
+                elif operation == "clear_restaurants":
+                    cmd.clear_restaurants(userid)
                 else:
                     print("unsupported operation: " + operation)
                     return HttpResponse(status=400)
 
-        elif callback_id == "print_selected_restaurants":
-            cmd.print_selected_restaurants(userid)
         else:
             print("unsupported callback id: " + callback_id)
             return HttpResponse(status=400)

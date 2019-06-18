@@ -38,7 +38,8 @@ class SlackSender:
             "actions": [
                 {"name": "operation", "text": "erase", "type": "button", "value": "erase"},
                 {"name": "operation", "text": "recommend", "type": "button", "value": "recommend"},
-                {"name": "operation", "text": "select restaurants", "type": "button", "value": "restaurants"}
+                {"name": "operation", "text": "select restaurants", "type": "button", "value": "restaurants"},
+                {"name": "operation", "text": "clear restaurants", "type": "button", "value": "clear_restaurants"}
             ]
         }
         self._api.message(self._api.user_channel(user.slack_id), "Other controls", [att])
