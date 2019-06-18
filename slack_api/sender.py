@@ -1,8 +1,8 @@
 import itertools
 from operator import itemgetter
 from datetime import date
-from lunchinator.models import User, Selection
-from slack_api.slack_api import SlackApi
+from lunchinator.models import User, Selection, Meal
+from slack_api.api import SlackApi
 
 
 class SlackSender:
@@ -18,55 +18,55 @@ class SlackSender:
         for u in User.objects.all():
             self.send_meals(u)
 
-        for restaurant in self._meals.keys():
-            att = {
-                "fallback": restaurant.name,
-                "color": "good",
-                 "fields": [SlackSender._meal_field(m, idx) for idx, m in enumerate(self._meals[restaurant])]
-            }
-            self._api.message(self._lunch_channel, f"*=== {restaurant.acronym}: {restaurant.name} ===*", [att])
-
-    @staticmethod
-    def _meal_field(meal, idx: int, extra_info=None) -> dict:
-        value = str(meal.price)
-        if extra_info is not None:
-            value += ", " + extra_info,
-        return {
-            "title": f"{meal.restaurant.acronym}{idx + 1}. {meal.name}",
-            "value": value,
-            "short": False
-        }
-
-    def send_to_user(self, userid: str, text: str):
-        self._api.message(self._api.user_channel(userid), text)
-
     def send_meals(self, user: User):
-        for restaurant in user.favorite_restaurants:
+        for restaurant in user.favorite_restaurants.all():
             if restaurant in self._meals:
                 att = {
                     "fallback": restaurant.name,
                     "color": "good",
-                    "fields": [SlackSender._meal_field(m, idx) for idx, m in enumerate(self._meals[restaurant])]
+                    "attachment_type": "default",
+                    "callback_id": "meals_selection",
+                    "actions": [SlackSender._meal_action(meal) for meal in self._meals[restaurant]]
                 }
-                self._api.message(self._api.user_channel(user.slack_id), f"*=== {restaurant.acronym}: {restaurant.name} ===*", [att])
+                self._api.message(self._api.user_channel(user.slack_id), f"*=== {restaurant.name} ===*", [att])
+
+        att = {
+            "fallback": "Other controls",
+            "color": "good",
+            "attachment_type": "default",
+            "callback_id": "other_ops",
+            "actions": [
+                {"name": "operation", "text": "erase", "type": "button", "value": "erase"},
+                {"name": "operation", "text": "recommend", "type": "button", "value": "recommend"},
+                {"name": "operation", "text": "select restaurants", "type": "button", "value": "restaurants"}
+            ]
+        }
+        self._api.message(self._api.user_channel(user.slack_id), "Other controls", [att])
 
     def print_recommendation(self, recs: list, userid: str):
-        rec_fields = [SlackSender._meal_field(meal, idx, f"{meal.restaurant.name}, score={score}") for meal, idx, score in recs]
+        actions = [SlackSender._meal_action(meal, f"{meal.restaurant.name}, score={score}") for meal, score in recs]
         att = {
             "fallback": "Recommendations",
             "color": "good",
-            "fields": rec_fields
+            "attachment_type": "default",
+            "callback_id": "recommendations_selection",
+            "actions": actions
         }
         text = f"*Recommendations for <@{userid}>*"
-        self._api.message(self._api.user_channel(userid), text, [att])
+        self._api.message(self._api.user_channel(user.slack_id), text, [att])
 
-    def print_restaurants(self, userid: str, title: str, restaurants: list):
+    def print_restaurants(self, userid: str, restaurants: list, selected_restaurants: list):
+        fields = [{"title": f"{restaurant.name}", "value": "selected", "short": False}
+                  for restaurant in selected_restaurants]
         att = {
             "fallback": "Restaurants",
             "color": "good",
-            "fields": [{"title": f"{r.acronym}: {r.name}", "value": None, "short": True} for r in restaurants]
+            "attachment_type": "default",
+            "callback_id": "restaurants_selection",
+            "fields": fields,
+            "actions": [{"name": "restaurant", "text": r.name, "type": "button", "value": r.pk} for r in restaurants]
         }
-        self._api.message(self._api.user_channel(userid), title, [att])
+        self._api.message(self._api.user_channel(userid), "Available restaurants", [att])
 
     def post_selections(self, userid: str = None):
         restaurant_users = [(s.meal.restaurant, s.user) for s in Selection.objects.filter(meal__date=self._today).all()]
@@ -95,3 +95,15 @@ class SlackSender:
                 self._selection_user_message[userid] = ts
         else:
             self._api.update_message(channel, current_ts, text, [att])
+
+    @staticmethod
+    def _meal_action(meal: Meal, extra_info=None) -> dict:
+        text = f"{meal.name} {meal.price}"
+        if extra_info is not None:
+            text += ", " + extra_info,
+        return {
+            "name": "meal",
+            "text": text,
+            "type": "button",
+            "value": meal.pk
+        }

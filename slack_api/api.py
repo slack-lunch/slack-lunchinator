@@ -1,6 +1,9 @@
 import slack
 
-
+"""
+Lowlevel API wrapping Slack API.
+TODO: somehow add content_type = 'application/json; charset=utf-8'
+"""
 class SlackApi:
     def __init__(self, username: str, token: str):
         self._username = username
@@ -18,13 +21,13 @@ class SlackApi:
         assert response["ok"]
 
     def user_channel(self, userid: str) -> str:
-            if userid in self._user_channels:
-                return self._user_channels[userid]
-            else:
-                response = self._client.im_open(user = userid)
-                assert response["ok"]
-                self._user_channels[userid] = response["channel"]["id"]
-                return response["channel"]["id"]
+        if userid in self._user_channels:
+            return self._user_channels[userid]
+        else:
+            response = self._client.im_open(user=userid)
+            assert response["ok"]
+            self._user_channels[userid] = response["channel"]["id"]
+            return response["channel"]["id"]
 
     @staticmethod
     def _encode(s: str) -> str:
