@@ -1,9 +1,11 @@
 from django.http import HttpResponse
 from django.http import HttpRequest
+from django.views.decorators.csrf import csrf_exempt
 import json
 from lunchinator.commands import Commands
 
 
+@csrf_exempt
 def endpoint(request: HttpRequest):
     action = json.loads(request.POST["payload"])
     type = action["type"]
