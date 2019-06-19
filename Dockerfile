@@ -6,7 +6,7 @@ RUN /usr/local/bin/pip3 install -r /opt/requirements.txt
 COPY manage.py /opt/
 COPY app /opt/app
 COPY lunchinator /opt/lunchinator
-COPY parsing /opt/parsing
+COPY restaurants /opt/restaurants
 COPY recommender /opt/recommender
 COPY slack_api /opt/slack_api
 
