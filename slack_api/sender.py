@@ -1,32 +1,41 @@
+import os
 import itertools
 from operator import itemgetter
 from datetime import date
-from lunchinator.models import User, Selection, Meal
+from lunchinator.models import User, Selection, Meal, Restaurant
 from slack_api.api import SlackApi
 
 
 class SlackSender:
-    def __init__(self, api: SlackApi, lunch_channel: str, meals: dict, today: date):
-        self._api = api
-        self._lunch_channel = lunch_channel
-        self._meals = meals
-        self._today = today
+    __instance = None
+
+    def __new__(cls):
+        if SlackSender.__instance is None:
+            SlackSender.__instance = object.__new__(cls)
+        return SlackSender.__instance
+
+    def __init__(self):
+        self._lunch_channel = os.environ['LUNCHINATOR_LUNCH_CHANNEL']
         self._selection_message = None
         self._selection_user_message = {}
+        self._api = SlackApi()
 
     def send_to_slack(self):
         for u in User.objects.all():
             self.send_meals(u)
 
     def send_meals(self, user: User):
+        restaurants = Restaurant.objects.filter(enabled=True).all()
+        meals = {r: r.meals.filter(date=date.today()).all() for r in restaurants}
+
         for restaurant in user.favorite_restaurants.all():
-            if restaurant in self._meals:
+            if restaurant in meals:
                 att = {
                     "fallback": restaurant.name,
                     "color": "good",
                     "attachment_type": "default",
                     "callback_id": "meals_selection",
-                    "actions": [SlackSender._meal_action(meal) for meal in self._meals[restaurant]]
+                    "actions": [SlackSender._meal_action(meal) for meal in meals[restaurant]]
                 }
                 self._api.message(self._api.user_channel(user.slack_id), f"*=== {restaurant.name} ===*", [att])
 
@@ -70,7 +79,7 @@ class SlackSender:
         self._api.message(self._api.user_channel(userid), "Available restaurants", [att])
 
     def post_selections(self, userid: str = None):
-        restaurant_users = [(s.meal.restaurant, s.user) for s in Selection.objects.filter(meal__date=self._today).all()]
+        restaurant_users = [(s.meal.restaurant, s.user) for s in Selection.objects.filter(meal__date=date.today()).all()]
         restaurant_users_grouped = [(r, [ru[1] for ru in rus]) for r, rus in itertools.groupby(sorted(restaurant_users, key=itemgetter(0)), itemgetter(0))]
         fields = [{"title": f"{restaurant.name} ({len(users)})", "value": ", ".join([f"<@{u.id}>" for u in users]), "short": False}
                   for restaurant, users in sorted(restaurant_users_grouped, key=lambda restaurant, users: (-len(users), restaurant.name))]

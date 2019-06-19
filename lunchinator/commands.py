@@ -4,9 +4,15 @@ from lunchinator.models import User, Selection, Meal, Restaurant
 
 
 class Commands:
-    def __init__(self, sender: SlackSender, today: date):
-        self._sender = sender
-        self._today = today
+    __instance = None
+
+    def __new__(cls):
+        if Commands.__instance is None:
+            Commands.__instance = object.__new__(cls)
+        return Commands.__instance
+
+    def __init__(self):
+        self._sender = SlackSender()
 
     def select_meals(self, userid: str, meal_ids: list, recommended: bool):
         user = User.objects.get(slack_id=userid)
@@ -34,22 +40,20 @@ class Commands:
 
     def erase(self, userid: str):
         user = self._user(userid)
-        Selection.objects.filter(meal__date=self._today, user=user).clear()
+        Selection.objects.filter(meal__date=date.today(), user=user).clear()
         self._sender.post_selections()
 
     def recommend(self, userid: str, number: int):
         self._sender.print_recommendation(self._get_recommendations(number, userid), userid)
 
     def list_restaurants(self, userid: str):
-        restaurants = Restaurant.objects.all()
         user = self._user(userid)
-        selected_restaurants = user.favorite_restaurants.all()
-        self._sender.print_restaurants(userid, restaurants, selected_restaurants)
+        self._sender.print_restaurants(userid, Restaurant.objects.all(), user.favorite_restaurants.all())
 
     def clear_restaurants(self, userid):
         user = self._user(userid)
         user.favorite_restaurants.clear()
-        self._sender.send_to_user(userid, "Restaurants cleared")
+        self._sender.print_restaurants(userid, Restaurant.objects.all(), [])
 
     def _get_recommendations(self, number: int, userid: str) -> list:
         return []
