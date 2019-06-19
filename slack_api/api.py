@@ -24,9 +24,20 @@ class SlackApi:
         return response["ts"]
 
     def update_message(self, channel: str, ts: str, text: str, attachments: list = None):
-        print(f"edit {ts} to {channel}: {text}: {attachments}")
         response = self._client.chat_update(text=SlackApi._encode(text), channel=channel, attachments=attachments, username=self._username, as_user=False, ts=ts)
         assert response["ok"]
+
+    def user_dialog(self, trigger_id: str):
+        self._client.dialog_open(dialog={
+            "callback_id": "user_selection",
+            "title": "Select user",
+            "submit_label": "Select",
+            "elements": [{
+                "type": "select",
+                "label": "User",
+                "name": "user",
+                "data_source": "users"
+            }]}, trigger_id=trigger_id)
 
     def user_channel(self, userid: str) -> str:
         if userid in self._user_channels:

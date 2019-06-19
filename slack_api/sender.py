@@ -48,10 +48,26 @@ class SlackSender:
                 {"name": "operation", "text": "erase", "type": "button", "value": "erase"},
                 {"name": "operation", "text": "recommend", "type": "button", "value": "recommend"},
                 {"name": "operation", "text": "select restaurants", "type": "button", "value": "restaurants"},
-                {"name": "operation", "text": "clear restaurants", "type": "button", "value": "clear_restaurants"}
+                {"name": "operation", "text": "clear restaurants", "type": "button", "value": "clear_restaurants"},
+                {"name": "operation", "text": "invite", "type": "button", "value": "invite_dialog"}
             ]
         }
         self._api.message(self._api.user_channel(user.slack_id), "Other controls", [att])
+
+    def invite(self, userid: str):
+        att = {
+            "fallback": "Lunchinator invite",
+            "color": "good",
+            "attachment_type": "default",
+            "callback_id": "other_ops",
+            "actions": [
+                {"name": "operation", "text": "select restaurants", "type": "button", "value": "restaurants"},
+            ]
+        }
+        self._api.message(self._api.user_channel(userid), "Lunchinator invite", [att])
+
+    def invite_dialog(self, trigger_id: str):
+        self._api.user_dialog(trigger_id)
 
     def print_recommendation(self, recs: list, userid: str):
         actions = [SlackSender._meal_action(meal, f"{meal.restaurant.name}, score={score}") for meal, score in recs]
@@ -80,14 +96,14 @@ class SlackSender:
 
     def post_selections(self, userid: str = None):
         restaurant_users = [(s.meal.restaurant, s.user) for s in Selection.objects.filter(meal__date=date.today()).all()]
-        restaurant_users_grouped = [(r, [ru[1] for ru in rus]) for r, rus in itertools.groupby(sorted(restaurant_users, key=itemgetter(0)), itemgetter(0))]
-        fields = [{"title": f"{restaurant.name} ({len(users)})", "value": ", ".join([f"<@{u.id}>" for u in users]), "short": False}
-                  for restaurant, users in sorted(restaurant_users_grouped, key=lambda restaurant, users: (-len(users), restaurant.name))]
+        restaurant_users_grouped = [(r, [ru[1] for ru in rus]) for r, rus in itertools.groupby(sorted(restaurant_users, key=itemgetter(0).name), itemgetter(0).name)]
+        fields = [{"title": f"{restaurant.name} ({len(users)})", "value": ", ".join([f"<@{u.slack_id}>" for u in users]), "short": False}
+                  for restaurant, users in sorted(restaurant_users_grouped, key=lambda rest_users: (-len(rest_users[1]), rest_users[0].name))]
         att = {
             "fallback": "Selection",
             "color": "good",
             "fields": fields,
-            "mrkdwn_in": {"fields"}
+            "mrkdwn_in": ["fields"]
         }
         text = "*Current selection*"
         if userid is None:
