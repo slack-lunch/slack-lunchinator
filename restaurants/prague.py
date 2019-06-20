@@ -4,6 +4,7 @@ from restaurants.abstract_parser import AbstractParser
 
 
 class MenickaAbstractParser(AbstractParser):
+    ENCODING = 'WINDOWS-1250'
 
     def get_meals(self):
         soup = self._get_soup()
@@ -39,7 +40,6 @@ class CoolnaParser(MenickaAbstractParser):
 
 class PotrefenaHusaParser(MenickaAbstractParser):
     # URL = 'http://www.potrefene-husy.cz/cz/pankrac-poledni-menu'
-    # TODO charset=windows-1250
     URL = 'https://www.menicka.cz/3815-potrefena-husa-na-pankraci.html'
 
 
