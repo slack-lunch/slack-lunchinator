@@ -50,6 +50,7 @@ class Selection(models.Model):
 
     class Meta:
         default_related_name = 'selections'
+        unique_together = ('meal', 'user')
 
     def __str__(self):
         return f'Selection: {self.user.get_username()} - {self.meal.name}' + (' (rec)' if self.recommended else '')

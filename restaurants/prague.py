@@ -14,8 +14,11 @@ class MenickaAbstractParser(AbstractParser):
 
         for meal_div in today_menu_div.find_all('div', {'class': lambda c: c.startswith('nabidka')}):
             name = meal_div.text
-            price = float(meal_div.find_next_sibling("div").text.split()[0])
-            meals.append(self._build_meal(name, price))
+            try:
+                price = float(meal_div.find_next_sibling("div").text.split()[0])
+            except IndexError:
+                price = 0.0
+            meals.append((name, price))
         return meals
 
 
