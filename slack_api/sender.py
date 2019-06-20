@@ -81,16 +81,21 @@ class SlackSender:
         self._api.message(self._api.user_channel(userid), text, atts)
 
     def print_restaurants(self, userid: str, restaurants: list, selected_restaurants: list):
-        fields = [{"title": f"{restaurant.name}", "value": "selected", "short": False}
-                  for restaurant in selected_restaurants]
         atts = [{
             "fallback": "Restaurants",
             "color": "good",
             "attachment_type": "default",
             "callback_id": "restaurants_selection",
-            "fields": fields,
             "actions": [{"name": "restaurant", "text": r.name, "type": "button", "value": r.pk} for r in restaurant_group]
         } for restaurant_group in SlackSender._grouper(restaurants, 5)]
+
+        atts.append({
+            "fallback": "Selected restaurants",
+            "title": "Selected restaurants",
+            "color": "good",
+            "fields": [{"title": f"{restaurant.name}", "short": True} for restaurant in selected_restaurants]
+        })
+
         self._api.message(self._api.user_channel(userid), "Available restaurants", atts)
 
     def post_selections(self, userid: str = None):
