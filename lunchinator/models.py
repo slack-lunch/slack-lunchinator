@@ -3,18 +3,17 @@ from django.db import models
 
 
 class Restaurant(models.Model):
-    acronym = models.CharField(max_length=5)
     enabled = models.BooleanField(default=True)
     name = models.CharField(max_length=255)
     provider = models.CharField(max_length=255)
     url = models.URLField()
 
     class Meta:
-        ordering = 'acronym',
+        ordering = 'name',
         default_related_name = 'restaurants'
 
     def __str__(self):
-        return f'Restaurant: {self.acronym}: {self.name} ({self.url})'
+        return f'Restaurant: {self.name} ({self.url})'
 
 
 class User(AbstractBaseUser):
@@ -41,7 +40,7 @@ class Meal(models.Model):
         default_related_name = 'meals'
 
     def __str__(self):
-        return f'Meal: {self.restaurant.acronym} - {self.name} ({self.price})'
+        return f'Meal: {self.restaurant.name} - {self.name} ({self.price})'
 
 
 class Selection(models.Model):
