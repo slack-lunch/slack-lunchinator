@@ -39,6 +39,7 @@ class CoolnaParser(MenickaAbstractParser):
 
 class PotrefenaHusaParser(MenickaAbstractParser):
     # URL = 'http://www.potrefene-husy.cz/cz/pankrac-poledni-menu'
+    # TODO charset=windows-1250
     URL = 'https://www.menicka.cz/3815-potrefena-husa-na-pankraci.html'
 
 
@@ -92,7 +93,7 @@ class EnterpriseParser(AbstractParser):
             name = meal_div.find('div', {'class': 'tmi-name'}).text.strip()
             price_text = meal_div.find('div', {'class': 'tmi-price'})
             price = float(price_text.text) if price_text else None
-            meals.append((name, price))
+            meals.append(self._build_meal(name, price))
         return meals
 
 
