@@ -1,17 +1,13 @@
 import os
 import slack
+from slack_api.singleton import Singleton
 
-"""
-Lowlevel API wrapping Slack API.
-TODO: somehow add content_type = 'application/json; charset=utf-8'
-"""
-class SlackApi:
-    __instance = None
 
-    def __new__(cls):
-        if SlackApi.__instance is None:
-            SlackApi.__instance = object.__new__(cls)
-        return SlackApi.__instance
+class SlackApi(metaclass=Singleton):
+    """
+    Lowlevel API wrapping Slack API.
+    TODO: somehow add content_type = 'application/json; charset=utf-8'
+    """
 
     def __init__(self):
         self._username = "Lunchinator"
@@ -25,6 +21,10 @@ class SlackApi:
 
     def update_message(self, channel: str, ts: str, text: str, attachments: list = None):
         response = self._client.chat_update(text=SlackApi._encode(text), channel=channel, attachments=attachments, username=self._username, as_user=False, ts=ts)
+        assert response["ok"]
+
+    def delete_message(self, channel: str, ts: str):
+        response = self._client.chat_delete(channel=channel, ts=ts)
         assert response["ok"]
 
     def user_dialog(self, trigger_id: str):

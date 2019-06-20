@@ -7,6 +7,7 @@ from lunchinator.models import Meal, Restaurant
 class AbstractParser:
     URL = None
     RESTAURANT_NAME = None
+    ENCODING = 'UTF-8'
 
     def __init__(self):
         self._restaurant = None
@@ -20,7 +21,9 @@ class AbstractParser:
 
     def _get_soup(self):
         user_agent = {'User-agent': 'Mozilla/5.0'}
-        html = get(self.URL, headers=user_agent).text
+        req = get(self.URL, headers=user_agent)
+        req.encoding = self.ENCODING
+        html = req.text
         return bs4.BeautifulSoup(html, features="html.parser")
 
     def _build_meal(self, name, price):

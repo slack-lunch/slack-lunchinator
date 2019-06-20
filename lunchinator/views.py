@@ -32,9 +32,9 @@ def endpoint(request: HttpRequest):
         elif callback_id == "other_ops":
             for operation in [a["value"] for a in actions if a["name"] == "operation"]:
                 if operation == "erase":
-                    cmd.erase(userid)
+                    cmd.erase_meals(userid)
                 elif operation == "recommend":
-                    cmd.recommend(userid, 5)
+                    cmd.recommend_meals(userid, 5)
                 elif operation == "restaurants":
                     cmd.list_restaurants(userid)
                 elif operation == "clear_restaurants":

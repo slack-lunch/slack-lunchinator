@@ -1,15 +1,10 @@
 from datetime import date
 from slack_api.sender import SlackSender
 from lunchinator.models import User, Selection, Meal, Restaurant
+from slack_api.singleton import Singleton
 
 
-class Commands:
-    __instance = None
-
-    def __new__(cls):
-        if Commands.__instance is None:
-            Commands.__instance = object.__new__(cls)
-        return Commands.__instance
+class Commands(metaclass=Singleton):
 
     def __init__(self):
         self._sender = SlackSender()
@@ -25,6 +20,18 @@ class Commands:
 
         self._sender.post_selections()
 
+    def erase_meals(self, userid: str):
+        user = User.objects.get_or_create(slack_id=userid)[0]
+        user.selections.filter(meal__date=date.today()).delete()
+        self._sender.post_selections()
+
+    def recommend_meals(self, userid: str, number: int):
+        self._sender.print_recommendation(self._get_recommendations(number, userid), userid)
+
+    def list_restaurants(self, userid: str):
+        user = User.objects.get_or_create(slack_id=userid)[0]
+        self._sender.print_restaurants(userid, Restaurant.objects.all(), user.favorite_restaurants.all())
+
     def select_restaurants(self, userid: str, restaurant_ids: list):
         user = User.objects.get_or_create(slack_id=userid)[0]
 
@@ -32,23 +39,13 @@ class Commands:
             restaurant = Restaurant.objects.get(pk=r_id)
             user.favorite_restaurants.add(restaurant)
 
+        user.save()
+        self._sender.print_restaurants(user.slack_id, Restaurant.objects.all(), user.favorite_restaurants.all())
         self._sender.send_meals(user)
-
-    def erase(self, userid: str):
-        user = User.objects.get_or_create(slack_id=userid)[0]
-        Selection.objects.filter(meal__date=date.today(), user=user.pk).delete()
-        self._sender.post_selections()
-
-    def recommend(self, userid: str, number: int):
-        self._sender.print_recommendation(self._get_recommendations(number, userid), userid)
-
-    def list_restaurants(self, userid: str):
-        user = User.objects.get_or_create(slack_id=userid)[0]
-        self._sender.print_restaurants(userid, Restaurant.objects.all(), user.favorite_restaurants.all())
 
     def clear_restaurants(self, userid: str):
         user = User.objects.get_or_create(slack_id=userid)[0]
-        user.favorite_restaurants.all().delete()
+        user.favorite_restaurants.clear()
         self._sender.print_restaurants(userid, Restaurant.objects.all(), [])
 
     def _get_recommendations(self, number: int, userid: str) -> list:
