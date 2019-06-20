@@ -30,14 +30,14 @@ class SlackSender:
 
         for restaurant in user.favorite_restaurants.all():
             if restaurant in meals:
-                att = {
+                atts = [{
                     "fallback": restaurant.name,
                     "color": "good",
                     "attachment_type": "default",
                     "callback_id": "meals_selection",
-                    "actions": [SlackSender._meal_action(meal) for meal in meals[restaurant]]
-                }
-                self._api.message(self._api.user_channel(user.slack_id), f"*=== {restaurant.name} ===*", [att])
+                    "actions": [SlackSender._meal_action(meal) for meal in meal_group]
+                } for meal_group in SlackSender._grouper(meals[restaurant], 5)]
+                self._api.message(self._api.user_channel(user.slack_id), f"*=== {restaurant.name} ===*", atts)
 
         att = {
             "fallback": "Other controls",
@@ -70,29 +70,28 @@ class SlackSender:
         self._api.user_dialog(trigger_id)
 
     def print_recommendation(self, recs: list, userid: str):
-        actions = [SlackSender._meal_action(meal, f"{meal.restaurant.name}, score={score}") for meal, score in recs]
-        att = {
+        atts = [{
             "fallback": "Recommendations",
             "color": "good",
             "attachment_type": "default",
             "callback_id": "recommendations_selection",
-            "actions": actions
-        }
+            "actions": [SlackSender._meal_action(meal, f"{meal.restaurant.name}, score={score}") for meal, score in rec_group]
+        } for rec_group in SlackSender._grouper(recs, 5)]
         text = f"*Recommendations for <@{userid}>*"
-        self._api.message(self._api.user_channel(user.slack_id), text, [att])
+        self._api.message(self._api.user_channel(userid), text, atts)
 
     def print_restaurants(self, userid: str, restaurants: list, selected_restaurants: list):
         fields = [{"title": f"{restaurant.name}", "value": "selected", "short": False}
                   for restaurant in selected_restaurants]
-        att = {
+        atts = [{
             "fallback": "Restaurants",
             "color": "good",
             "attachment_type": "default",
             "callback_id": "restaurants_selection",
             "fields": fields,
-            "actions": [{"name": "restaurant", "text": r.name, "type": "button", "value": r.pk} for r in restaurants]
-        }
-        self._api.message(self._api.user_channel(userid), "Available restaurants", [att])
+            "actions": [{"name": "restaurant", "text": r.name, "type": "button", "value": r.pk} for r in restaurant_group]
+        } for restaurant_group in SlackSender._grouper(restaurants, 5)]
+        self._api.message(self._api.user_channel(userid), "Available restaurants", atts)
 
     def post_selections(self, userid: str = None):
         restaurant_users = [(s.meal.restaurant, s.user) for s in Selection.objects.filter(meal__date=date.today()).all()]
@@ -133,3 +132,8 @@ class SlackSender:
             "type": "button",
             "value": meal.pk
         }
+
+    @staticmethod
+    def _grouper(iterable, n):
+        args = [iter(iterable)] * n
+        return ([e for e in x if e is not None] for x in itertools.zip_longest(*args))
