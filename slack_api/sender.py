@@ -117,9 +117,9 @@ class SlackSender(metaclass=Singleton):
     def post_selections(self, userid: str = None):
         restaurant_users = [(s.meal.restaurant, s.user) for s in Selection.objects.filter(meal__date=date.today()).all()]
         key_fun = lambda rest_user: rest_user[0].name
-        restaurant_users_grouped = [(r, [ru[1] for ru in rus]) for r, rus in itertools.groupby(sorted(restaurant_users, key=key_fun), key_fun)]
-        fields = [{"title": f"{restaurant_name} ({len(users)})", "value": ", ".join([f"<@{u.slack_id}>" for u in users]), "short": False}
-                  for restaurant_name, users in sorted(restaurant_users_grouped, key=lambda rest_users: (-len(rest_users[1]), rest_users[0]))]
+        restaurant_users_grouped = [(r, {ru[1].slack_id for ru in rus}) for r, rus in itertools.groupby(sorted(restaurant_users, key=key_fun), key_fun)]
+        fields = [{"title": f"{restaurant_name} ({len(user_ids)})", "value": ", ".join([f"<@{uid}>" for uid in user_ids]), "short": False}
+                  for restaurant_name, user_ids in sorted(restaurant_users_grouped, key=lambda rest_users: (-len(rest_users[1]), rest_users[0]))]
         att = {
             "fallback": "Selection",
             "color": "good",
