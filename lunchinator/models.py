@@ -32,7 +32,7 @@ class User(AbstractBaseUser):
 class Meal(models.Model):
     date = models.DateField(auto_now=True)
     name = models.CharField(max_length=255)
-    price = models.FloatField()
+    price = models.FloatField(null=True)
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
 
     class Meta:
