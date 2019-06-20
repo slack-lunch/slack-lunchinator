@@ -20,6 +20,18 @@ class Commands(metaclass=Singleton):
 
         self._sender.post_selections()
 
+    def erase_meals(self, userid: str):
+        user = User.objects.get_or_create(slack_id=userid)[0]
+        Selection.objects.filter(meal__date=date.today(), user=user.pk).delete()
+        self._sender.post_selections()
+
+    def recommend_meals(self, userid: str, number: int):
+        self._sender.print_recommendation(self._get_recommendations(number, userid), userid)
+
+    def list_restaurants(self, userid: str):
+        user = User.objects.get_or_create(slack_id=userid)[0]
+        self._sender.print_restaurants(userid, Restaurant.objects.all(), user.favorite_restaurants.all())
+
     def select_restaurants(self, userid: str, restaurant_ids: list):
         user = User.objects.get_or_create(slack_id=userid)[0]
 
@@ -28,19 +40,8 @@ class Commands(metaclass=Singleton):
             user.favorite_restaurants.add(restaurant)
 
         user.save()
+        self._sender.print_restaurants(user.slack_id, Restaurant.objects.all(), user.favorite_restaurants.all())
         self._sender.send_meals(user)
-
-    def erase(self, userid: str):
-        user = User.objects.get_or_create(slack_id=userid)[0]
-        Selection.objects.filter(meal__date=date.today(), user=user.pk).delete()
-        self._sender.post_selections()
-
-    def recommend(self, userid: str, number: int):
-        self._sender.print_recommendation(self._get_recommendations(number, userid), userid)
-
-    def list_restaurants(self, userid: str):
-        user = User.objects.get_or_create(slack_id=userid)[0]
-        self._sender.print_restaurants(userid, Restaurant.objects.all(), user.favorite_restaurants.all())
 
     def clear_restaurants(self, userid: str):
         user = User.objects.get_or_create(slack_id=userid)[0]

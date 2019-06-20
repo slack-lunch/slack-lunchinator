@@ -32,13 +32,9 @@ class SlackSender(metaclass=Singleton):
 
         for restaurant in user.favorite_restaurants.all():
             if (restaurant in meals) and (restaurant.pk not in self._meals_user_restaurants_messages[user.slack_id]):
-                atts = [{
-                    "fallback": restaurant.name,
-                    "color": "good",
-                    "attachment_type": "default",
-                    "callback_id": "meals_selection",
-                    "actions": [SlackSender._meal_action(meal) for meal in meal_group]
-                } for meal_group in SlackSender._grouper(meals[restaurant], 5)]
+                atts = SlackSender._meals_attachments(meals[restaurant], restaurant.name, "meals_selection",
+                        lambda group: [SlackSender._meal_field(meal) for meal in group],
+                        lambda group: [SlackSender._meal_action(meal) for meal in group])
                 ts = self._api.message(self._api.user_channel(user.slack_id), f"*=== {restaurant.name} ===*", atts)
                 self._meals_user_restaurants_messages[user.slack_id][restaurant.pk] = ts
 
@@ -84,14 +80,10 @@ class SlackSender(metaclass=Singleton):
         self._api.user_dialog(trigger_id)
 
     def print_recommendation(self, recs: list, userid: str):
-        atts = [{
-            "fallback": "Recommendations",
-            "color": "good",
-            "attachment_type": "default",
-            "callback_id": "recommendations_selection",
-            "actions": [SlackSender._meal_action(meal, f"{meal.restaurant.name}, score={score}") for meal, score in rec_group]
-        } for rec_group in SlackSender._grouper(recs, 5)]
-        text = f"*Recommendations for <@{userid}>*"
+        atts = SlackSender._meals_attachments(recs, "Recommendations", "recommendations_selection",
+              lambda group: [SlackSender._meal_field(meal, f"{meal.restaurant.name}, score={score}") for meal, score in group],
+              lambda group: [SlackSender._meal_action(meal) for meal, score in group])
+        text = f"*Recommendations>*"
 
         if userid in self._recommendations_user_message:
             self._api.update_message(self._api.user_channel(userid), self._recommendations_user_message[userid], text, atts)
@@ -151,10 +143,35 @@ class SlackSender(metaclass=Singleton):
             self._api.update_message(channel, current_ts, text, [att])
 
     @staticmethod
-    def _meal_action(meal: Meal, extra_info=None) -> dict:
-        text = f"{meal.name} {meal.price}"
+    def _meals_attachments(data: list, fallback: str, callback_id: str, group_to_fields, group_to_actions) -> list:
+        return [{
+            "fallback": fallback,
+            "color": "good",
+            "attachment_type": "default",
+            "callback_id": callback_id,
+            "fields": group_to_fields(group),
+            "actions": group_to_actions(group)
+        } for group in SlackSender._grouper(data, 5)]
+
+    @staticmethod
+    def _meal_field(meal: Meal, extra_info=None) -> dict:
+        value = ""
+        if meal.price is not None:
+            value = str(meal.price)
         if extra_info is not None:
-            text += ", " + extra_info,
+            value += ", " + extra_info,
+        return {
+            "title": meal.name,
+            "value": value,
+            "short": False
+        }
+
+    @staticmethod
+    def _meal_action(meal: Meal) -> dict:
+        if len(meal.name) > 16:
+            text = meal.name[0:16] + "..."
+        else:
+            text = meal.name
         return {
             "name": "meal",
             "text": text,
