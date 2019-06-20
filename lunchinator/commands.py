@@ -22,7 +22,7 @@ class Commands(metaclass=Singleton):
 
     def erase_meals(self, userid: str):
         user = User.objects.get_or_create(slack_id=userid)[0]
-        Selection.objects.filter(meal__date=date.today(), user=user.pk).delete()
+        user.selections.filter(meal__date=date.today()).delete()
         self._sender.post_selections()
 
     def recommend_meals(self, userid: str, number: int):
@@ -45,7 +45,7 @@ class Commands(metaclass=Singleton):
 
     def clear_restaurants(self, userid: str):
         user = User.objects.get_or_create(slack_id=userid)[0]
-        user.favorite_restaurants.all().delete()
+        user.favorite_restaurants.clear()
         self._sender.print_restaurants(userid, Restaurant.objects.all(), [])
 
     def _get_recommendations(self, number: int, userid: str) -> list:
