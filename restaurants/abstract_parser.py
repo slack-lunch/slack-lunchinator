@@ -29,5 +29,5 @@ class AbstractParser:
     @property
     def restaurant(self):
         if self._restaurant is None:
-            self._restaurant = Restaurant.objects.get(parser=self.__class__.__name__)
+            self._restaurant = Restaurant.objects.get(provider=self.__class__.__name__)
         return self._restaurant
