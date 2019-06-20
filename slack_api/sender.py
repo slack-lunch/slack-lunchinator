@@ -4,20 +4,19 @@ from operator import itemgetter
 from datetime import date
 from lunchinator.models import User, Selection, Meal, Restaurant
 from slack_api.api import SlackApi
+from slack_api.singleton import Singleton
 
 
-class SlackSender:
-    __instance = None
-
-    def __new__(cls):
-        if SlackSender.__instance is None:
-            SlackSender.__instance = object.__new__(cls)
-        return SlackSender.__instance
+class SlackSender(metaclass=Singleton):
 
     def __init__(self):
         self._lunch_channel = os.environ['LUNCHINATOR_LUNCH_CHANNEL']
         self._selection_message = None
         self._selection_user_message = {}
+        self._restaurants_user_message = {}
+        self._recommendations_user_message = {}
+        self._meals_user_restaurants_messages = {}
+        self._other_actions_user_message_sent = set()
         self._api = SlackApi()
 
     def send_to_slack(self):
@@ -28,8 +27,11 @@ class SlackSender:
         restaurants = Restaurant.objects.filter(enabled=True).all()
         meals = {r: r.meals.filter(date=date.today()).all() for r in restaurants}
 
+        if user.slack_id not in self._meals_user_restaurants_messages:
+            self._meals_user_restaurants_messages[user.slack_id] = {}
+
         for restaurant in user.favorite_restaurants.all():
-            if restaurant in meals:
+            if (restaurant in meals) and (restaurant.pk not in self._meals_user_restaurants_messages[user.slack_id]):
                 atts = [{
                     "fallback": restaurant.name,
                     "color": "good",
@@ -37,8 +39,19 @@ class SlackSender:
                     "callback_id": "meals_selection",
                     "actions": [SlackSender._meal_action(meal) for meal in meal_group]
                 } for meal_group in SlackSender._grouper(meals[restaurant], 5)]
-                self._api.message(self._api.user_channel(user.slack_id), f"*=== {restaurant.name} ===*", atts)
+                ts = self._api.message(self._api.user_channel(user.slack_id), f"*=== {restaurant.name} ===*", atts)
+                self._meals_user_restaurants_messages[user.slack_id][restaurant.pk] = ts
 
+        for restaurant_id in set(self._meals_user_restaurants_messages[user.slack_id].keys())\
+                .difference({r.pk for r in user.favorite_restaurants.all()}):
+            self._api.delete_message(self._api.user_channel(user.slack_id),
+                                     self._meals_user_restaurants_messages[user.slack_id][restaurant_id])
+
+        if user.slack_id not in self._other_actions_user_message_sent:
+            self._send_other_controls(user.slack_id)
+            self._other_actions_user_message_sent.add(user.slack_id)
+
+    def _send_other_controls(self, userid: str):
         att = {
             "fallback": "Other controls",
             "color": "good",
@@ -52,7 +65,8 @@ class SlackSender:
                 {"name": "operation", "text": "invite", "type": "button", "value": "invite_dialog"}
             ]
         }
-        self._api.message(self._api.user_channel(user.slack_id), "Other controls", [att])
+
+        self._api.message(self._api.user_channel(userid), "Other controls", [att])
 
     def invite(self, userid: str):
         att = {
@@ -78,7 +92,12 @@ class SlackSender:
             "actions": [SlackSender._meal_action(meal, f"{meal.restaurant.name}, score={score}") for meal, score in rec_group]
         } for rec_group in SlackSender._grouper(recs, 5)]
         text = f"*Recommendations for <@{userid}>*"
-        self._api.message(self._api.user_channel(userid), text, atts)
+
+        if userid in self._recommendations_user_message:
+            self._api.update_message(self._api.user_channel(userid), self._recommendations_user_message[userid], text, atts)
+        else:
+            ts = self._api.message(self._api.user_channel(userid), text, atts)
+            self._recommendations_user_message[userid] = ts
 
     def print_restaurants(self, userid: str, restaurants: list, selected_restaurants: list):
         atts = [{
@@ -96,7 +115,12 @@ class SlackSender:
             "fields": [{"title": f"{restaurant.name}", "short": True} for restaurant in selected_restaurants]
         })
 
-        self._api.message(self._api.user_channel(userid), "Available restaurants", atts)
+        text = "Available restaurants"
+        if userid in self._restaurants_user_message:
+            self._api.update_message(self._api.user_channel(userid), self._restaurants_user_message[userid], text, atts)
+        else:
+            ts = self._api.message(self._api.user_channel(userid), text, atts)
+            self._restaurants_user_message[userid] = ts
 
     def post_selections(self, userid: str = None):
         restaurant_users = [(s.meal.restaurant, s.user) for s in Selection.objects.filter(meal__date=date.today()).all()]
@@ -115,7 +139,7 @@ class SlackSender:
             current_ts = self._selection_message
         else:
             channel = self._api.user_channel(userid)
-            current_ts = self._selection_user_message[userid]
+            current_ts = self._selection_user_message.get(userid)
 
         if current_ts is None:
             ts = self._api.message(channel, text, [att])

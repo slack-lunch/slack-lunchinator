@@ -1,15 +1,10 @@
 from datetime import date
 from slack_api.sender import SlackSender
 from lunchinator.models import User, Selection, Meal, Restaurant
+from slack_api.singleton import Singleton
 
 
-class Commands:
-    __instance = None
-
-    def __new__(cls):
-        if Commands.__instance is None:
-            Commands.__instance = object.__new__(cls)
-        return Commands.__instance
+class Commands(metaclass=Singleton):
 
     def __init__(self):
         self._sender = SlackSender()
@@ -32,6 +27,7 @@ class Commands:
             restaurant = Restaurant.objects.get(pk=r_id)
             user.favorite_restaurants.add(restaurant)
 
+        user.save()
         self._sender.send_meals(user)
 
     def erase(self, userid: str):
