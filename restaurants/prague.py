@@ -19,7 +19,7 @@ class MenickaAbstractParser(AbstractParser):
                 price = float(meal_div.find_next_sibling("div").text.split()[0])
             except IndexError:
                 price = 0.0
-            meals.append((name, price))
+            meals.append(self._build_meal(name, price))
         return meals
 
 
@@ -112,7 +112,7 @@ class CorleoneParser(AbstractParser):
 
         day_tr = soup.find('th', text=lambda s: date in s).parent
         meal_tr = day_tr.find_next_sibling()
-        while meal_tr.get('class')[0] != 'date':
+        while meal_tr and meal_tr.get('class')[0] != 'date':
             name_td, price_td = meal_tr.find_all('td')
             name = name_td.text
             price = float(price_td.find('u').text)
