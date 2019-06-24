@@ -12,23 +12,33 @@ class SlackApi(metaclass=Singleton):
     def __init__(self):
         self._username = "Lunchinator"
         self._user_channels = {}
-        self._client = slack.WebClient(token=os.environ['LUNCHINATOR_TOKEN'])
+        self._client = lambda: slack.WebClient(token=os.environ['LUNCHINATOR_TOKEN'])
 
-    def message(self, channel: str, text: str, attachments: list = None) -> str:
-        response = self._client.chat_postMessage(text=SlackApi._encode(text), channel=channel, attachments=attachments, username=self._username, as_user=False)
+    def message(self, channel: str, text: str, attachments: list = None, blocks: list = None) -> str:
+        response = self._client().chat_postMessage(text=SlackApi._encode(text), channel=channel, attachments=attachments,
+                                                   blocks=blocks, username=self._username, as_user=False)
         assert response["ok"]
         return response["ts"]
 
-    def update_message(self, channel: str, ts: str, text: str, attachments: list = None):
-        response = self._client.chat_update(text=SlackApi._encode(text), channel=channel, attachments=attachments, username=self._username, as_user=False, ts=ts)
-        assert response["ok"]
+    def update_message(self, channel: str, ts: str, text: str, attachments: list = None, blocks: list = None) -> str:
+        try:
+            response = self._client().chat_update(text=SlackApi._encode(text), channel=channel, attachments=attachments,
+                                                  blocks=blocks, username=self._username, as_user=False, ts=ts)
+            assert response["ok"]
+            return ts
+        except:
+            print(f"Failed to update message {ts} for {channel}, sending as new")
+            return self.message(channel, text, attachments)
 
     def delete_message(self, channel: str, ts: str):
-        response = self._client.chat_delete(channel=channel, ts=ts)
-        assert response["ok"]
+        try:
+            response = self._client().chat_delete(channel=channel, ts=ts)
+            assert response["ok"]
+        except:
+            print(f"Failed to delete message {ts} for {channel}")
 
     def user_dialog(self, trigger_id: str):
-        self._client.dialog_open(dialog={
+        self._client().dialog_open(dialog={
             "callback_id": "user_selection",
             "title": "Select user",
             "submit_label": "Select",
@@ -43,7 +53,7 @@ class SlackApi(metaclass=Singleton):
         if userid in self._user_channels:
             return self._user_channels[userid]
         else:
-            response = self._client.im_open(user=userid)
+            response = self._client().im_open(user=userid)
             assert response["ok"]
             self._user_channels[userid] = response["channel"]["id"]
             return response["channel"]["id"]
