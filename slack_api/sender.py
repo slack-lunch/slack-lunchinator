@@ -1,6 +1,5 @@
 import os
 import itertools
-from operator import itemgetter
 from datetime import date
 from lunchinator.models import User, Selection, Meal, Restaurant
 from slack_api.api import SlackApi
@@ -11,13 +10,22 @@ class SlackSender(metaclass=Singleton):
 
     def __init__(self):
         self._lunch_channel = os.environ['LUNCHINATOR_LUNCH_CHANNEL']
+        self._api = SlackApi()
+
         self._selection_message = None
-        self._selection_user_message = {}
+        self._user_selection_message = {}
         self._restaurants_user_message = {}
         self._recommendations_user_message = {}
         self._meals_user_restaurants_messages = {}
         self._other_actions_user_message_sent = set()
-        self._api = SlackApi()
+
+    def reset(self):
+        self._selection_message = None
+        self._user_selection_message = {}
+        self._restaurants_user_message = {}
+        self._recommendations_user_message = {}
+        self._meals_user_restaurants_messages = {}
+        self._other_actions_user_message_sent = set()
 
     def send_to_slack(self):
         for u in User.objects.all():
@@ -32,152 +40,172 @@ class SlackSender(metaclass=Singleton):
 
         for restaurant in user.favorite_restaurants.all():
             if (restaurant in meals) and (restaurant.pk not in self._meals_user_restaurants_messages[user.slack_id]):
-                atts = SlackSender._meals_attachments(meals[restaurant], restaurant.name, "meals_selection",
+                blocks = SlackSender._meals_blocks(meals[restaurant], "meals"+str(restaurant.pk),
                         lambda group: [SlackSender._meal_field(meal) for meal in group],
-                        lambda group: [SlackSender._meal_action(meal) for meal in group])
-                ts = self._api.message(self._api.user_channel(user.slack_id), f"*=== {restaurant.name} ===*", atts)
+                        lambda group: [SlackSender._meal_action_element(meal) for meal in group])
+                blocks.insert(0, {"type": "section", "text": {"type": "mrkdwn", "text": f"*=== {restaurant.name} ===*"}})
+                ts = self._api.message(self._api.user_channel(user.slack_id), f"*=== {restaurant.name} ===*", blocks)
                 self._meals_user_restaurants_messages[user.slack_id][restaurant.pk] = ts
 
         for restaurant_id in set(self._meals_user_restaurants_messages[user.slack_id].keys())\
                 .difference({r.pk for r in user.favorite_restaurants.all()}):
             self._api.delete_message(self._api.user_channel(user.slack_id),
                                      self._meals_user_restaurants_messages[user.slack_id][restaurant_id])
+            self._meals_user_restaurants_messages[user.slack_id].pop(restaurant_id)
 
         if user.slack_id not in self._other_actions_user_message_sent:
             self._send_other_controls(user.slack_id)
             self._other_actions_user_message_sent.add(user.slack_id)
 
     def _send_other_controls(self, userid: str):
-        att = {
-            "fallback": "Other controls",
-            "color": "good",
-            "attachment_type": "default",
-            "callback_id": "other_ops",
-            "actions": [
-                {"name": "operation", "text": "erase", "type": "button", "value": "erase"},
-                {"name": "operation", "text": "recommend", "type": "button", "value": "recommend"},
-                {"name": "operation", "text": "select restaurants", "type": "button", "value": "restaurants"},
-                {"name": "operation", "text": "clear restaurants", "type": "button", "value": "clear_restaurants"},
-                {"name": "operation", "text": "invite", "type": "button", "value": "invite_dialog"}
+        blocks = [{
+            "type": "actions",
+            "elements": [
+                {"type": "button", "text": {"type": "plain_text", "text": "erase"}, "action_id": "erase", "value": "1"},
+                {"type": "button", "text": {"type": "plain_text", "text": "recommend"}, "action_id": "recommend", "value": "1"},
+                {"type": "button", "text": {"type": "plain_text", "text": "my selection"}, "action_id": "print_selection", "value": "1"}
             ]
-        }
+        }, {
+            "type": "actions",
+            "elements": [
+                {"type": "button", "text": {"type": "plain_text", "text": "select restaurants"}, "action_id": "restaurants", "value": "1"},
+                {"type": "button", "text": {"type": "plain_text", "text": "clear restaurants"}, "action_id": "clear_restaurants", "value": "1"},
+                {"type": "button", "text": {"type": "plain_text", "text": "invite"}, "action_id": "invite_dialog", "value": "1"}
 
-        self._api.message(self._api.user_channel(userid), "Other controls", [att])
+            ]
+        }]
+        self._api.message(self._api.user_channel(userid), "Other controls", blocks)
 
     def invite(self, userid: str):
-        att = {
-            "fallback": "Lunchinator invite",
-            "color": "good",
-            "attachment_type": "default",
-            "callback_id": "other_ops",
-            "actions": [
-                {"name": "operation", "text": "select restaurants", "type": "button", "value": "restaurants"},
-            ]
-        }
-        self._api.message(self._api.user_channel(userid), "Lunchinator invite", [att])
+        blocks = [{
+                "type": "actions",
+                "elements": [{"type": "button", "text": {"type": "plain_text", "text": "select restaurants"}, "action_id": "restaurants", "value": "1"}]
+        }]
+        self._api.message(self._api.user_channel(userid), "Lunchinator invite", blocks)
 
     def invite_dialog(self, trigger_id: str):
         self._api.user_dialog(trigger_id)
 
     def print_recommendation(self, recs: list, userid: str):
-        atts = SlackSender._meals_attachments(recs, "Recommendations", "recommendations_selection",
+        blocks = SlackSender._meals_blocks(recs, "recommended_meals",
               lambda group: [SlackSender._meal_field(meal, f"{meal.restaurant.name}, score={score}") for meal, score in group],
-              lambda group: [SlackSender._meal_action(meal) for meal, score in group])
-        text = f"*Recommendations>*"
+              lambda group: [SlackSender._meal_action_element(meal) for meal, score in group])
+        text = f"*Recommendations*"
 
         if userid in self._recommendations_user_message:
-            self._api.update_message(self._api.user_channel(userid), self._recommendations_user_message[userid], text, atts)
+            ts = self._api.update_message(self._api.user_channel(userid), self._recommendations_user_message[userid], text, blocks)
         else:
-            ts = self._api.message(self._api.user_channel(userid), text, atts)
-            self._recommendations_user_message[userid] = ts
+            ts = self._api.message(self._api.user_channel(userid), text, blocks)
+        self._recommendations_user_message[userid] = ts
 
     def print_restaurants(self, userid: str, restaurants: list, selected_restaurants: list):
-        atts = [{
-            "fallback": "Restaurants",
-            "color": "good",
-            "attachment_type": "default",
-            "callback_id": "restaurants_selection",
-            "actions": [{"name": "restaurant", "text": r.name, "type": "button", "value": r.pk} for r in restaurant_group]
-        } for restaurant_group in SlackSender._grouper(restaurants, 5)]
+        blocks = [{
+            "type": "actions",
+            "block_id": "restaurants"+str(i),
+            "elements": [{"type": "button", "text": {"type": "plain_text", "text": r.name}, "value": str(r.pk), "action_id": "restaurant"+str(r.pk)} for r in restaurant_group]
+        } for i, restaurant_group in enumerate(SlackSender._grouper(restaurants, 5))]
 
-        atts.append({
-            "fallback": "Selected restaurants",
-            "title": "Selected restaurants",
-            "color": "good",
-            "fields": [{"title": f"{restaurant.name}", "short": True} for restaurant in selected_restaurants]
+        restaurant_fields = [{"type": "plain_text", "text": f"{restaurant.name}"} for restaurant in selected_restaurants]
+        if not restaurant_fields:
+            restaurant_fields = [{"type": "plain_text", "text": "<none>"}]
+
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*Selected restaurants*"
+            },
+            "fields": restaurant_fields
         })
 
         text = "Available restaurants"
         if userid in self._restaurants_user_message:
-            self._api.update_message(self._api.user_channel(userid), self._restaurants_user_message[userid], text, atts)
+            ts = self._api.update_message(self._api.user_channel(userid), self._restaurants_user_message[userid], text, blocks)
         else:
-            ts = self._api.message(self._api.user_channel(userid), text, atts)
-            self._restaurants_user_message[userid] = ts
+            ts = self._api.message(self._api.user_channel(userid), text, blocks)
+        self._restaurants_user_message[userid] = ts
 
-    def post_selections(self, userid: str = None):
+    def post_selections(self):
         restaurant_users = [(s.meal.restaurant, s.user) for s in Selection.objects.filter(meal__date=date.today()).all()]
         key_fun = lambda rest_user: rest_user[0].name
         restaurant_users_grouped = [(r, {ru[1].slack_id for ru in rus}) for r, rus in itertools.groupby(sorted(restaurant_users, key=key_fun), key_fun)]
-        fields = [{"title": f"{restaurant_name} ({len(user_ids)})", "value": ", ".join([f"<@{uid}>" for uid in user_ids]), "short": False}
-                  for restaurant_name, user_ids in sorted(restaurant_users_grouped, key=lambda rest_users: (-len(rest_users[1]), rest_users[0]))]
-        att = {
-            "fallback": "Selection",
-            "color": "good",
-            "fields": fields,
-            "mrkdwn_in": ["fields"]
-        }
-        text = "*Current selection*"
-        if userid is None:
-            channel = self._lunch_channel
-            current_ts = self._selection_message
-        else:
-            channel = self._api.user_channel(userid)
-            current_ts = self._selection_user_message.get(userid)
+        blocks = [{
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*{restaurant_name} ({len(user_ids)})*\n" + ", ".join([f"<@{uid}>" for uid in user_ids])
+            }
+        } for restaurant_name, user_ids in sorted(restaurant_users_grouped, key=lambda rest_users: (-len(rest_users[1]), rest_users[0]))]
 
-        if current_ts is None:
-            ts = self._api.message(channel, text, [att])
-            if userid is None:
-                self._selection_message = ts
-            else:
-                self._selection_user_message[userid] = ts
+        text = "*Current selection*"
+        if self._selection_message is None:
+            ts = self._api.message(self._lunch_channel, text, blocks)
         else:
-            self._api.update_message(channel, current_ts, text, [att])
+            ts = self._api.update_message(self._lunch_channel, self._selection_message, text, blocks)
+        self._selection_message = ts
+
+    def post_selection(self, userid: str, meals: list):
+        fields = [{
+            "type": "mrkdwn",
+            "text": f"{meal.restaurant.name}: *{meal.name}* {meal.price or ''}",
+        } for meal in meals]
+
+        if not fields:
+            fields = [{"type": "plain_text", "text": "<none>"}]
+
+        blocks = [{
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*Selection*",
+            },
+            "fields": fields
+        }]
+        text = "*Current selection*"
+        if userid in self._user_selection_message:
+            ts = self._api.update_message(self._api.user_channel(userid), self._user_selection_message[userid], text, blocks)
+        else:
+            ts = self._api.message(self._api.user_channel(userid), text, blocks)
+        self._user_selection_message[userid] = ts
 
     @staticmethod
-    def _meals_attachments(data: list, fallback: str, callback_id: str, group_to_fields, group_to_actions) -> list:
-        return [{
-            "fallback": fallback,
-            "color": "good",
-            "attachment_type": "default",
-            "callback_id": callback_id,
+    def _meals_blocks(data: list, block_id, group_to_fields, group_to_elements) -> list:
+        return [x for i, group in enumerate(SlackSender._grouper(data, 4)) for x in [{
+            "type": "section",
+            "text": {
+                "type": "plain_text",
+                "text": " ",
+            },
             "fields": group_to_fields(group),
-            "actions": group_to_actions(group)
-        } for group in SlackSender._grouper(data, 5)]
+        }, {
+            "type": "actions",
+            "block_id": block_id + "_" + str(i),
+            "elements": group_to_elements(group)
+        }]]
 
     @staticmethod
     def _meal_field(meal: Meal, extra_info=None) -> dict:
         value = ""
         if meal.price is not None:
-            value = str(meal.price)
+            value += " " + str(meal.price)
         if extra_info is not None:
             value += ", " + extra_info,
         return {
-            "title": meal.name,
-            "value": value,
-            "short": False
+            "type": "mrkdwn",
+            "text": f"*{meal.name}*" + value,
         }
 
     @staticmethod
-    def _meal_action(meal: Meal) -> dict:
+    def _meal_action_element(meal: Meal) -> dict:
         if len(meal.name) > 16:
             text = meal.name[0:16] + "..."
         else:
             text = meal.name
         return {
-            "name": "meal",
-            "text": text,
             "type": "button",
-            "value": meal.pk
+            "text": {"type": "plain_text", "text": text},
+            "value": str(meal.pk),
+            "action_id": "meal" + str(meal.pk)
         }
 
     @staticmethod

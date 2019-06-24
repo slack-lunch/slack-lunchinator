@@ -25,6 +25,11 @@ class Commands(metaclass=Singleton):
         user.selections.filter(meal__date=date.today()).delete()
         self._sender.post_selections()
 
+    def print_selection(self, userid: str):
+        user = User.objects.get_or_create(slack_id=userid)[0]
+        meals = [s.meal for s in user.selections.filter(meal__date=date.today()).all()]
+        self._sender.post_selection(user.slack_id, meals)
+
     def recommend_meals(self, userid: str, number: int):
         self._sender.print_recommendation(self._get_recommendations(number, userid), userid)
 

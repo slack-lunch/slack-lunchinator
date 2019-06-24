@@ -14,21 +14,21 @@ class SlackApi(metaclass=Singleton):
         self._user_channels = {}
         self._client = lambda: slack.WebClient(token=os.environ['LUNCHINATOR_TOKEN'])
 
-    def message(self, channel: str, text: str, attachments: list = None, blocks: list = None) -> str:
-        response = self._client().chat_postMessage(text=SlackApi._encode(text), channel=channel, attachments=attachments,
+    def message(self, channel: str, text: str, blocks: list = None) -> str:
+        response = self._client().chat_postMessage(text=SlackApi._encode(text), channel=channel,
                                                    blocks=blocks, username=self._username, as_user=False)
         assert response["ok"]
         return response["ts"]
 
-    def update_message(self, channel: str, ts: str, text: str, attachments: list = None, blocks: list = None) -> str:
+    def update_message(self, channel: str, ts: str, text: str, blocks: list = None) -> str:
         try:
-            response = self._client().chat_update(text=SlackApi._encode(text), channel=channel, attachments=attachments,
+            response = self._client().chat_update(text=SlackApi._encode(text), channel=channel,
                                                   blocks=blocks, username=self._username, as_user=False, ts=ts)
             assert response["ok"]
             return ts
         except:
             print(f"Failed to update message {ts} for {channel}, sending as new")
-            return self.message(channel, text, attachments)
+            return self.message(channel, text, blocks)
 
     def delete_message(self, channel: str, ts: str):
         try:

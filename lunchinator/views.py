@@ -11,45 +11,43 @@ def endpoint(request: HttpRequest):
     action = json.loads(request.POST["payload"])
     type = action["type"]
     userid = action["user"]["id"]
-    callback_id = action["callback_id"]
     # action_ts = action["action_ts"]
     # message_ts = action["message_ts"]
     # response_url = action["response_url"]
     cmd = Commands()
     sender = SlackSender()
 
-    if type == "interactive_message":
+    if type == "block_actions":
         trigger_id = action["trigger_id"]
         actions = action["actions"]
 
-        if callback_id == "restaurants_selection":
-            cmd.select_restaurants(userid, [a["value"] for a in actions if a["name"] == "restaurant"])
-        elif callback_id == "meals_selection":
-            cmd.select_meals(userid, [a["value"] for a in actions if a["name"] == "meal"], recommended=False)
-        elif callback_id == "recommendations_selection":
-            cmd.select_meals(userid, [a["value"] for a in actions if a["name"] == "meal"], recommended=True)
+        for action in actions:
+            if action["action_id"] == "erase":
+                cmd.erase_meals(userid)
+            elif action["action_id"] == "recommend":
+                cmd.recommend_meals(userid, 5)
+            elif action["action_id"] == "restaurants":
+                cmd.list_restaurants(userid)
+            elif action["action_id"] == "clear_restaurants":
+                cmd.clear_restaurants(userid)
+            elif action["action_id"] == "invite_dialog":
+                sender.invite_dialog(trigger_id)
+            elif action["action_id"] == "print_selection":
+                cmd.print_selection(userid)
 
-        elif callback_id == "other_ops":
-            for operation in [a["value"] for a in actions if a["name"] == "operation"]:
-                if operation == "erase":
-                    cmd.erase_meals(userid)
-                elif operation == "recommend":
-                    cmd.recommend_meals(userid, 5)
-                elif operation == "restaurants":
-                    cmd.list_restaurants(userid)
-                elif operation == "clear_restaurants":
-                    cmd.clear_restaurants(userid)
-                elif operation == "invite_dialog":
-                    sender.invite_dialog(trigger_id)
-                else:
-                    print("unsupported operation: " + operation)
-                    return HttpResponse(status=400)
+            elif action["block_id"].startswith("restaurants"):
+                cmd.select_restaurants(userid, [action["value"]])
+            elif action["block_id"].startswith("meals"):
+                cmd.select_meals(userid, [action["value"]], recommended=False)
+            elif action["block_id"].startswith("recommended_meals"):
+                cmd.select_meals(userid, [action["value"]], recommended=True)
 
-        else:
-            print("unsupported callback id: " + callback_id)
-            return HttpResponse(status=400)
+            else:
+                print("unsupported action_id: " + action["action_id"])
+                return HttpResponse(status=400)
 
     elif type == "dialog_submission":
+        callback_id = action["callback_id"]
         submission = action["submission"]
 
         if callback_id == "user_selection":
