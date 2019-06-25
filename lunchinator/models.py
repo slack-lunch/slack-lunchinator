@@ -26,7 +26,7 @@ class User(AbstractBaseUser):
         verbose_name_plural = 'Users (with favorite restaurants)'
 
     def __str__(self):
-        return f'User: {self}'
+        return f'User: {self.get_username()}'
 
 
 class Meal(models.Model):
