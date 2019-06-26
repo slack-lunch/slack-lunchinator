@@ -1,6 +1,13 @@
+import re
 from datetime import datetime
 
 from restaurants.abstract_parser import AbstractParser
+
+from contextlib import contextmanager
+import tempfile
+import requests
+
+from pdfminer.high_level import extract_text_to_fp
 
 
 class MenickaAbstractParser(AbstractParser):
@@ -121,14 +128,77 @@ class CorleoneParser(AbstractParser):
         return meals
 
 
-class PankrackyRynekParser(AbstractParser):
-    URL = ''
-
-    def get_meals(self):
-        pass
+@contextmanager
+def open_url(url):
+    with tempfile.NamedTemporaryFile() as tfile:
+        tfile.write(requests.get(url).content)
+        tfile.flush()
+        tfile.seek(0)
+        yield tfile
 
 
 class PerfectCanteenParser(AbstractParser):
+    URL = 'http://menu.perfectcanteen.cz/pdf/27/cz/price/a3'
+
+    WEEK_DAYS_CZ = [
+        'Pondělí',
+        'Úterý',
+        'Středa',
+        'Čtvrtek',
+        'Pátek'
+    ]
+
+    WEEKLY_MENU_SECTIONS = [
+        'PASTA FRESCA BAR',
+        'CHEF´S SPECIAL',
+        'PERFECT STEAK s omáčkou \\(BBQ, pepřová omáčka\\)',
+        'PŘÍLOHY'
+    ]
+
+    def _get_text(self):
+        with open_url(self.URL) as menu_pdf, tempfile.NamedTemporaryFile() as out:
+            extract_text_to_fp(menu_pdf, out)
+            out.seek(0)
+            return list(out)[0].decode('utf-8')
+
+    @staticmethod
+    def _extract_meal_and_price(s):
+        regex = r'(.*) ([0-9]+)'
+        name, price = re.search(regex, s).groups()
+        name = re.search('(.+) {2}.*', name).group(1).strip()  # remove allergens
+        return name, float(price)
+
+    def _extract_meals_from_section(self, s):
+        meals = []
+        for m in s.split(' Kč')[:-1]:
+            name, price = self._extract_meal_and_price(m)
+            meals.append(self._build_meal(name, price))
+        return meals
+
+    def _extract_todays_menu(self, s):
+        week_day = self.WEEK_DAYS_CZ[datetime.today().weekday()]
+        todays_menu = re.search(f'{week_day}(.*)Každý den', s).group(1).split('Každý den')[0]
+        return self._extract_meals_from_section(todays_menu)
+
+    def _extract_weekly_menu(self, s):
+        meals = []
+
+        weekly_menu = re.search('TÝDENNÍ NABÍDKA(.*PŘÍLOHY)', s).group(1)
+        for start, end in zip(self.WEEKLY_MENU_SECTIONS, self.WEEKLY_MENU_SECTIONS[1:]):
+            section_meals = re.search(f'{start} *(.*){end}', weekly_menu).group(1)
+            meals.extend(self._extract_meals_from_section(section_meals))
+
+        return meals
+
+    def get_meals(self):
+        text = self._get_text()
+        meals = []
+        meals.extend(self._extract_todays_menu(text))
+        meals.extend(self._extract_weekly_menu(text))
+        return meals
+
+
+class PankrackyRynekParser(AbstractParser):
     URL = ''
 
     def get_meals(self):

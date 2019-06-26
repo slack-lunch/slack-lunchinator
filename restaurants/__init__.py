@@ -13,8 +13,8 @@ _PARSER_CLASSES = [
     DiCarloParser,
     EnterpriseParser,
     CorleoneParser,
-    # PankrackyRynekParser,
-    # PerfectCanteenParser
+    PerfectCanteenParser,
+    # PankrackyRynekParser
 ]
 
 PARSERS = {
