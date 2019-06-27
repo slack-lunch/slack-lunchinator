@@ -2,6 +2,7 @@ FROM python:3.7-slim-stretch
 
 RUN apt-get update
 RUN apt-get install -y rabbitmq-server
+RUN apt-get install -y build-essential
 RUN apt-get clean all
 
 COPY requirements.txt /opt/
