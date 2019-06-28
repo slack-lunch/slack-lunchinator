@@ -20,8 +20,12 @@ class AbstractParser:
         raise NotImplementedError
 
     def _get_soup(self):
-        user_agent = {'User-agent': 'Mozilla/5.0'}
-        req = get(self.URL, headers=user_agent)
+        headers = {
+            'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3814.0 Safari/537.36',
+            'accept-encoding': 'gzip, deflate, br',
+            'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8'
+        }
+        req = get(self.URL, headers=headers)
         req.encoding = self.ENCODING
         html = req.text
         return bs4.BeautifulSoup(html, features="html.parser")
