@@ -10,20 +10,17 @@ class SlackApi(metaclass=Singleton):
     """
 
     def __init__(self):
-        self._username = "Lunchinator"
         self._user_channels = {}
         self._client = lambda: slack.WebClient(token=os.environ['LUNCHINATOR_TOKEN'])
 
     def message(self, channel: str, text: str, blocks: list = None) -> str:
-        response = self._client().chat_postMessage(text=SlackApi._encode(text), channel=channel,
-                                                   blocks=blocks, username=self._username, as_user=False)
+        response = self._client().chat_postMessage(text=SlackApi._encode(text), channel=channel, blocks=blocks)
         assert response["ok"]
         return response["ts"]
 
     def update_message(self, channel: str, ts: str, text: str, blocks: list = None) -> str:
         try:
-            response = self._client().chat_update(text=SlackApi._encode(text), channel=channel,
-                                                  blocks=blocks, username=self._username, as_user=False, ts=ts)
+            response = self._client().chat_update(text=SlackApi._encode(text), channel=channel, blocks=blocks, ts=ts)
             assert response["ok"]
             return ts
         except:

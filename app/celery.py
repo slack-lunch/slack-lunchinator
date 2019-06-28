@@ -1,6 +1,7 @@
 from datetime import date
 import os
 import django
+import traceback
 
 from celery import Celery
 from celery.schedules import crontab
@@ -37,6 +38,7 @@ def parse_and_send_meals():
             for m in ms:
                 m.save()
 
+    SlackSender().reset()
     SlackSender().send_to_slack()
 
 
@@ -46,4 +48,5 @@ def parse(restaurant: Restaurant) -> list:
     except Exception as ex:
         print("Failed parsing " + str(restaurant))
         print(ex)
+        traceback.print_exc()
         return []

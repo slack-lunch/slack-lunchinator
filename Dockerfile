@@ -20,4 +20,4 @@ WORKDIR /opt
 
 RUN ["/usr/local/bin/python3", "./manage.py", "migrate"]
 
-CMD rabbitmq-server & celery -A app worker -l info -c 1 & celery -A app beat -l info & ./manage.py runserver 0.0.0.0:8000
+CMD rabbitmq-server & celery -A app worker -c 1 & celery -A app beat & ./manage.py runserver 0.0.0.0:8000

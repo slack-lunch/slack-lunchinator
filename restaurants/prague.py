@@ -88,7 +88,7 @@ class DiCarloParser(AbstractParser):
 
 
 class EnterpriseParser(AbstractParser):
-    URL = 'https://www.zomato.com/cs/KantynaEnterprise/denní-menu'
+    URL = 'https://www.zomato.com/KantynaEnterprise/daily-menu'
 
     def get_meals(self):
         soup = self._get_soup()
