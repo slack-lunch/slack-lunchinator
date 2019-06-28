@@ -43,6 +43,7 @@ def parse_and_send_meals():
 def parse(restaurant: Restaurant) -> list:
     try:
         return PARSERS[restaurant.provider]().get_meals()
-    except:
+    except Exception as ex:
         print("Failed parsing " + str(restaurant))
+        print(ex)
         return []
