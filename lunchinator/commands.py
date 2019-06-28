@@ -1,4 +1,6 @@
 from datetime import date
+
+from recommender.recommender import Recommender
 from slack_api.sender import SlackSender
 from lunchinator.models import User, Selection, Meal, Restaurant
 from slack_api.singleton import Singleton
@@ -31,7 +33,9 @@ class Commands(metaclass=Singleton):
         self._sender.post_selection(user.slack_id, meals)
 
     def recommend_meals(self, userid: str, number: int):
-        self._sender.print_recommendation(self._get_recommendations(number, userid), userid)
+        user = User.objects.get_or_create(slack_id=userid)[0]
+        rec = Recommender(user)
+        self._sender.print_recommendation(rec.get_recommendations(number), userid)
 
     def list_restaurants(self, userid: str):
         user = User.objects.get_or_create(slack_id=userid)[0]
@@ -52,6 +56,3 @@ class Commands(metaclass=Singleton):
         user = User.objects.get_or_create(slack_id=userid)[0]
         user.favorite_restaurants.clear()
         self._sender.print_restaurants(userid, Restaurant.objects.all(), [])
-
-    def _get_recommendations(self, number: int, userid: str) -> list:
-        return []
