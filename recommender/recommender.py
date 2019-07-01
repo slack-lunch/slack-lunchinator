@@ -2,6 +2,8 @@ from datetime import date
 
 import majka
 import re
+
+from django.db.models import Count
 from sklearn.svm import LinearSVC
 from sklearn.calibration import CalibratedClassifierCV
 from imblearn.under_sampling import RandomUnderSampler
@@ -31,10 +33,21 @@ class Recommender:
 
         selecttions_q = self.user.selections.filter(recommended=False)
         selected_meals = Meal.objects.filter(id__in=selecttions_q.values_list('meal', flat=True)).all()
+
         not_selected_meals = Meal.objects \
             .filter(date__in=selecttions_q.values_list('meal__date', flat=True)) \
             .exclude(id__in=selecttions_q.values_list('meal__id', flat=True)) \
             .all()
+
+        if not selected_meals:
+            # Recommend based on others' selections
+            selected_meals_q = Meal.objects.annotate(selected=Count('selections')).filter(selected__gt=0)
+            selected_meals = selected_meals_q.all()
+
+            not_selected_meals = Meal.objects \
+                .filter(date__in=selected_meals_q.values_list('date', flat=True)) \
+                .exclude(id__in=selected_meals_q.values_list('id', flat=True)) \
+                .all()
 
         words = list(set((w for m in Meal.objects.all() for w in self._process_meal_name(m.name))))
         restaurants = Restaurant.objects.values_list('id', flat=True)
