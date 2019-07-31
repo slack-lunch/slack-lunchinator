@@ -90,6 +90,9 @@ class DiCarloParser(AbstractParser):
 class EnterpriseParser(AbstractParser):
     URL = 'https://www.zomato.com/KantynaEnterprise/daily-menu'
 
+    def _get_text(self):
+        return self._get_text_by_curl()
+
     def get_meals(self):
         soup = self._get_soup()
         today_menu_div = soup.find('div', {'class': 'tmi-group'})
