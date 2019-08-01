@@ -43,7 +43,7 @@ def endpoint(request: HttpRequest):
                 cmd.select_meals(userid, [action["value"]], recommended=True)
 
             else:
-                print("unsupported action_id: " + action["action_id"])
+                print("unsupported action_id / block_id: " + action["action_id"] + " / " + action["block_id"])
                 return HttpResponse(status=400)
 
     elif type == "dialog_submission":
