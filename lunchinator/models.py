@@ -20,6 +20,7 @@ class User(AbstractBaseUser):
     USERNAME_FIELD = 'slack_id'
 
     slack_id = models.CharField(max_length=20)
+    enabled = models.BooleanField(default=True)
     favorite_restaurants = models.ManyToManyField(Restaurant)
 
     class Meta:

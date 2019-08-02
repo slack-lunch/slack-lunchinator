@@ -10,7 +10,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "app.settings")
 django.setup()
 
 from slack_api.sender import SlackSender
-from lunchinator.models import Restaurant, Meal
+from lunchinator.models import Restaurant, Meal, User
 from restaurants import PARSERS
 
 app = Celery('lunchinator')
@@ -39,7 +39,8 @@ def parse_and_send_meals():
                 m.save()
 
     SlackSender().reset()
-    SlackSender().send_to_slack()
+    for user in User.objects.filter(enabled=True).all():
+        SlackSender().send_meals(user, restaurants)
 
 
 def parse(restaurant: Restaurant) -> list:

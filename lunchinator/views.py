@@ -34,6 +34,8 @@ def endpoint(request: HttpRequest):
                 sender.invite_dialog(trigger_id)
             elif action["action_id"] == "print_selection":
                 cmd.print_selection(userid)
+            elif action["action_id"] == "quit":
+                cmd.quit(userid)
 
             elif action["block_id"].startswith("restaurants"):
                 cmd.select_restaurants(userid, [action["value"]])

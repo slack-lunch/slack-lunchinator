@@ -1,7 +1,7 @@
 import os
 import itertools
 from datetime import date
-from lunchinator.models import User, Selection, Meal, Restaurant
+from lunchinator.models import User, Meal
 from slack_api.api import SlackApi
 from slack_api.singleton import Singleton
 
@@ -27,26 +27,38 @@ class SlackSender(metaclass=Singleton):
         self._meals_user_restaurants_messages = {}
         self._other_actions_user_message_sent = set()
 
-    def send_to_slack(self):
-        for u in User.objects.all():
-            self.send_meals(u)
-
-    def send_meals(self, user: User):
-        restaurants = Restaurant.objects.filter(enabled=True).all()
+    def send_meals(self, user: User, restaurants: list):
         meals = {r: r.meals.filter(date=date.today()).all() for r in restaurants}
+        user_meals_pks = {s.meal.pk for s in user.selections.filter(meal__date=date.today()).all()}
 
         if user.slack_id not in self._meals_user_restaurants_messages:
             self._meals_user_restaurants_messages[user.slack_id] = {}
 
         for restaurant in user.favorite_restaurants.all():
-            if (restaurant in meals) and (restaurant.pk not in self._meals_user_restaurants_messages[user.slack_id]):
+            if restaurant in meals:
                 blocks = [
                              {"type": "section", "text": {"type": "mrkdwn", "text": f"*{restaurant.name}*"}},
                              {"type": "divider"}
-                         ] + SlackSender._meals_blocks(meals[restaurant], "meals" + str(restaurant.pk),
-                                                       SlackSender._meal_text, SlackSender._meal_button_value)
+                         ] + [SlackSender._meal_voting_block(
+                                m,
+                                "meals" + str(restaurant.pk) + "_" + str(i),
+                                m.pk not in user_meals_pks
+                         ) for i, m in enumerate(meals[restaurant])]
+                if not meals[restaurant]:
+                    blocks.append({
+                        "type": "section",
+                        "text": {"type": "plain_text", "text": "<none>"},
+                    })
 
-                ts = self._api.message(self._api.user_channel(user.slack_id), restaurant.name, blocks)
+                if restaurant.pk in self._meals_user_restaurants_messages[user.slack_id]:
+                    ts = self._api.update_message(
+                        self._api.user_channel(user.slack_id),
+                        self._meals_user_restaurants_messages[user.slack_id][restaurant.pk],
+                        restaurant.name,
+                        blocks
+                    )
+                else:
+                    ts = self._api.message(self._api.user_channel(user.slack_id), restaurant.name, blocks)
                 self._meals_user_restaurants_messages[user.slack_id][restaurant.pk] = ts
 
         for restaurant_id in set(self._meals_user_restaurants_messages[user.slack_id].keys())\
@@ -75,6 +87,7 @@ class SlackSender(metaclass=Singleton):
                 "elements": [
                     {"type": "button", "text": {"type": "plain_text", "text": "select restaurants"}, "action_id": "restaurants", "value": "1"},
                     {"type": "button", "text": {"type": "plain_text", "text": "clear restaurants"}, "action_id": "clear_restaurants", "value": "1"},
+                    {"type": "button", "text": {"type": "plain_text", "text": "quit"}, "action_id": "quit", "value": "1"},
                     {"type": "button", "text": {"type": "plain_text", "text": "invite"}, "action_id": "invite_dialog", "value": "1"}
 
                 ]
@@ -96,20 +109,24 @@ class SlackSender(metaclass=Singleton):
     def invite_dialog(self, trigger_id: str):
         self._api.user_dialog(trigger_id)
 
-    def print_recommendation(self, recs: list, userid: str):
+    def print_recommendation(self, recs: list, user: User):
+        user_meals_pks = {s.meal.pk for s in user.selections.filter(meal__date=date.today()).all()}
         text = "*Recommendations*"
         blocks = [
                 {"type": "section", "text": {"type": "mrkdwn", "text": text}},
                 {"type": "divider"}
-            ] + SlackSender._meals_blocks(recs, "recommended_meals",
-            lambda meal_score: SlackSender._meal_text(meal_score[0], f"{meal_score[0].restaurant.name}, score={meal_score[1]}"),
-            lambda meal_score: SlackSender._meal_button_value(meal_score[0]))
+            ] + [SlackSender._meal_voting_block(
+                    m,
+                    "recommended_meals" + str(i),
+                    m.pk not in user_meals_pks,
+                    f"{m.restaurant.name}, score={s}"
+                 ) for i, (m, s) in enumerate(recs)]
 
-        if userid in self._recommendations_user_message:
-            ts = self._api.update_message(self._api.user_channel(userid), self._recommendations_user_message[userid], text, blocks)
+        if user.slack_id in self._recommendations_user_message:
+            ts = self._api.update_message(self._api.user_channel(user.slack_id), self._recommendations_user_message[user.slack_id], text, blocks)
         else:
-            ts = self._api.message(self._api.user_channel(userid), text, blocks)
-        self._recommendations_user_message[userid] = ts
+            ts = self._api.message(self._api.user_channel(user.slack_id), text, blocks)
+        self._recommendations_user_message[user.slack_id] = ts
 
     def print_restaurants(self, userid: str, restaurants: list, selected_restaurants: list):
         text = "*Available Restaurants*"
@@ -144,8 +161,8 @@ class SlackSender(metaclass=Singleton):
             ts = self._api.message(self._api.user_channel(userid), text, blocks)
         self._restaurants_user_message[userid] = ts
 
-    def post_selections(self):
-        restaurant_users = [(s.meal.restaurant, s.user) for s in Selection.objects.filter(meal__date=date.today()).all()]
+    def post_selections(self, selections: list):
+        restaurant_users = [(s.meal.restaurant, s.user) for s in selections]
         key_fun = lambda rest_user: rest_user[0].name
         restaurant_users_grouped = [(r, {ru[1].slack_id for ru in rus}) for r, rus in itertools.groupby(sorted(restaurant_users, key=key_fun), key_fun)]
         text = "*Current Selections*"
@@ -187,31 +204,32 @@ class SlackSender(metaclass=Singleton):
             ts = self._api.message(self._api.user_channel(userid), text, blocks)
         self._user_selection_message[userid] = ts
 
-    @staticmethod
-    def _meals_blocks(data: list, block_id: str, data_to_text, data_to_button_value) -> list:
-        return [{
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": data_to_text(x)},
-            "accessory": {
-                "type": "button",
-                "text": {"type": "plain_text", "text": "Vote"},  # "emoji": True,
-                "value": data_to_button_value(x)
-            },
-            "block_id": block_id + "_" + str(i),
-        } for i, x in enumerate(data)]
+    def message(self, userid: str, msg: str):
+        self._api.message(self._api.user_channel(userid), msg)
 
     @staticmethod
-    def _meal_text(meal: Meal, extra_info=None) -> str:
+    def _meal_voting_block(meal: Meal, block_id: str, allow_voting: bool, extra_info: str = None) -> dict:
+        block = {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": SlackSender._meal_text(meal, extra_info)},
+            "block_id": block_id
+        }
+        if allow_voting:
+            block["accessory"] = {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Vote"},  # "emoji": True,
+                "value": str(meal.pk)
+            }
+        return block
+
+    @staticmethod
+    def _meal_text(meal: Meal, extra_info: str) -> str:
         value = ""
         if meal.price:
             value += " _" + str(meal.price) + "_"
         if extra_info:
             value += ", " + extra_info,
         return f"{meal.name}{value}"
-
-    @staticmethod
-    def _meal_button_value(meal: Meal) -> str:
-        return str(meal.pk)
 
     @staticmethod
     def _grouper(iterable, n):

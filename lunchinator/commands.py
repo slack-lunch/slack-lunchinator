@@ -20,12 +20,12 @@ class Commands(metaclass=Singleton):
             selection.recommended = recommended
             selection.save()
 
-        self._sender.post_selections()
+        self._sender.post_selections(Selection.objects.filter(meal__date=date.today()).all())
 
     def erase_meals(self, userid: str):
         user = User.objects.get_or_create(slack_id=userid)[0]
         user.selections.filter(meal__date=date.today()).delete()
-        self._sender.post_selections()
+        self._sender.post_selections(Selection.objects.filter(meal__date=date.today()).all())
 
     def print_selection(self, userid: str):
         user = User.objects.get_or_create(slack_id=userid)[0]
@@ -35,11 +35,11 @@ class Commands(metaclass=Singleton):
     def recommend_meals(self, userid: str, number: int):
         user = User.objects.get_or_create(slack_id=userid)[0]
         rec = Recommender(user)
-        self._sender.print_recommendation(rec.get_recommendations(number), userid)
+        self._sender.print_recommendation(rec.get_recommendations(number), user)
 
     def list_restaurants(self, userid: str):
         user = User.objects.get_or_create(slack_id=userid)[0]
-        self._sender.print_restaurants(userid, Restaurant.objects.all(), user.favorite_restaurants.all())
+        self._sender.print_restaurants(userid, Restaurant.objects.filter(enabled=True).all(), user.favorite_restaurants.all())
 
     def select_restaurants(self, userid: str, restaurant_ids: list):
         user = User.objects.get_or_create(slack_id=userid)[0]
@@ -48,11 +48,18 @@ class Commands(metaclass=Singleton):
             restaurant = Restaurant.objects.get(pk=r_id)
             user.favorite_restaurants.add(restaurant)
 
+        user.enabled = True
         user.save()
-        self._sender.print_restaurants(user.slack_id, Restaurant.objects.all(), user.favorite_restaurants.all())
-        self._sender.send_meals(user)
+        self._sender.print_restaurants(user.slack_id, Restaurant.objects.filter(enabled=True).all(), user.favorite_restaurants.all())
+        self._sender.send_meals(user, Restaurant.objects.filter(enabled=True).all())
 
     def clear_restaurants(self, userid: str):
         user = User.objects.get_or_create(slack_id=userid)[0]
         user.favorite_restaurants.clear()
-        self._sender.print_restaurants(userid, Restaurant.objects.all(), [])
+        self._sender.print_restaurants(userid, Restaurant.objects.filter(enabled=True).all(), [])
+
+    def quit(self, userid: str):
+        user = User.objects.get_or_create(slack_id=userid)[0]
+        user.enabled = False
+        user.save()
+        self._sender.message(userid, "Bye")
