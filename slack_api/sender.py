@@ -172,7 +172,7 @@ class SlackSender(metaclass=Singleton):
         text = "*Your Current Selection*"
         fields = [{
             "type": "mrkdwn",
-            "text": f"{meal.restaurant.name}: {meal.name}{' _' + meal.price + '_' if meal.price else ''}",
+            "text": f"{meal.restaurant.name}: {meal.name}{' _' + str(meal.price) + '_' if meal.price else ''}",
         } for meal in meals]
 
         if not fields:
