@@ -189,7 +189,7 @@ class SlackSender(metaclass=Singleton):
         text = "*Your Current Selection*"
         fields = [{
             "type": "mrkdwn",
-            "text": f"{meal.restaurant.name}: {meal.name}{' _' + str(meal.price) + '_' if meal.price else ''}",
+            "text": f"{meal.restaurant.name}: {meal.name}{' _' + str(meal.price) + '_' if meal.price else ''}"
         } for meal in meals]
 
         if not fields:
@@ -228,7 +228,7 @@ class SlackSender(metaclass=Singleton):
         if meal.price:
             value += " _" + str(meal.price) + "_"
         if extra_info:
-            value += ", " + extra_info,
+            value += ", " + extra_info
         return f"{meal.name}{value}"
 
     @staticmethod
