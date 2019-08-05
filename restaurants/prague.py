@@ -20,11 +20,11 @@ class MenickaAbstractParser(AbstractParser):
 
         meals = []
 
-        for meal_div in today_menu_div.find_all('div', {'class': lambda c: c.startswith('nabidka')}):
-            name = meal_div.text
+        for meal_li in today_menu_div.find_all('li'):
+            name = meal_li.find('div', {'class': 'polozka'}).text
             try:
-                price = float(meal_div.find_next_sibling("div").text.split()[0])
-            except IndexError:
+                price = float(meal_li.find("div", {'class': 'cena'}).text.split()[0])
+            except (IndexError, AttributeError):
                 price = 0.0
             meals.append(self._build_meal(name, price))
         return meals
@@ -154,7 +154,7 @@ class PerfectCanteenParser(AbstractParser):
     WEEKLY_MENU_SECTIONS = [
         'PASTA FRESCA BAR',
         'CHEF´S SPECIAL',
-        'PERFECT STEAK s omáčkou \\(BBQ, pepřová omáčka\\)',
+        'PERFECT STEAK s omáčkou \\(.*\\)',
         'PŘÍLOHY'
     ]
 
