@@ -39,10 +39,13 @@ class Recommender:
             .exclude(id__in=selecttions_q.values_list('meal__id', flat=True)) \
             .all()
 
-        if not selected_meals:
+        if not selected_meals or len(selected_meals) < 10:
             # Recommend based on others' selections
             selected_meals_q = Meal.objects.annotate(selected=Count('selections')).filter(selected__gt=0)
             selected_meals = selected_meals_q.all()
+
+            if len(selected_meals) < 10:
+                return []
 
             not_selected_meals = Meal.objects \
                 .filter(date__in=selected_meals_q.values_list('date', flat=True)) \
