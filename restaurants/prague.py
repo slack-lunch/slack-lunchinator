@@ -88,12 +88,25 @@ class DiCarloParser(AbstractParser):
 
 
 class EnterpriseParser(AbstractParser):
-    URL = 'https://www.zomato.com/KantynaEnterprise/daily-menu'
-
-    def _get_text(self):
-        return self._get_text_by_curl()
+    # URL = 'https://www.zomato.com/KantynaEnterprise/daily-menu'
+    URL = 'http://pankrac.bigbandbiskupska.cz/restaurants/Enterprise'
 
     def get_meals(self):
+        soup = self._get_soup()
+
+        meals = []
+        for meal_tr in soup.find_all('tr'):
+            try:
+                name_td, price_td = meal_tr.find_all('td')
+                meals.append(self._build_meal(name_td.text, float(price_td.text.split()[0])))
+            except ValueError:
+                pass
+        return meals
+
+    def _get_text_zomato(self):
+        return self._get_text_by_curl()
+
+    def get_meals_zomato(self):
         soup = self._get_soup()
         today_menu_div = soup.find('div', {'class': 'tmi-group'})
         for excl in today_menu_div.find_all('div', {'class': 'bold600'}):
