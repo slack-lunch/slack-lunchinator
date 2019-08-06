@@ -119,7 +119,7 @@ class SlackSender(metaclass=Singleton):
                     m,
                     "recommended_meals" + str(i),
                     m.pk not in user_meals_pks,
-                    f"{m.restaurant.name}, score={s}"
+                    f"{m.restaurant.name}, score={s:.3f}"
                  ) for i, (m, s) in enumerate(recs)]
 
         if user.slack_id in self._recommendations_user_message:

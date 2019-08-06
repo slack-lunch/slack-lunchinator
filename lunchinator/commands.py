@@ -14,12 +14,15 @@ class Commands(metaclass=Singleton):
     def select_meals(self, userid: str, meal_ids: list, recommended: bool):
         user = User.objects.get_or_create(slack_id=userid)[0]
 
+        restaurants = set()
         for m_id in meal_ids:
             meal = Meal.objects.get(pk=m_id)
+            restaurants.add(meal.restaurant)
             selection = Selection.objects.get_or_create(meal=meal, user=user)[0]
             selection.recommended = recommended
             selection.save()
 
+        self._sender.send_meals(user, list(restaurants))
         self._sender.post_selections(Selection.objects.filter(meal__date=date.today()).all())
 
     def erase_meals(self, userid: str):
