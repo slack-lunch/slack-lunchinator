@@ -6,6 +6,10 @@ from lunchinator.commands import Commands
 from slack_api.sender import SlackSender
 
 
+sender = SlackSender()
+cmd = Commands(sender)
+
+
 @csrf_exempt
 def endpoint(request: HttpRequest):
     action = json.loads(request.POST["payload"])
@@ -14,8 +18,6 @@ def endpoint(request: HttpRequest):
     # action_ts = action["action_ts"]
     # message_ts = action["message_ts"]
     # response_url = action["response_url"]
-    cmd = Commands()
-    sender = SlackSender()
 
     if type == "block_actions":
         trigger_id = action["trigger_id"]
@@ -62,4 +64,10 @@ def endpoint(request: HttpRequest):
         print("unsupported request")
         return HttpResponse(status=400)
 
+    return HttpResponse()
+
+
+@csrf_exempt
+def trigger(request: HttpRequest):
+    cmd.parse_and_send_meals()
     return HttpResponse()

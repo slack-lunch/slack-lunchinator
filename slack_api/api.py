@@ -1,12 +1,10 @@
 import os
 import slack
-from slack_api.singleton import Singleton
 
 
-class SlackApi(metaclass=Singleton):
+class SlackApi:
     """
-    Lowlevel API wrapping Slack API.
-    TODO: somehow add content_type = 'application/json; charset=utf-8'
+    Low-level API wrapping Slack API.
     """
 
     def __init__(self):

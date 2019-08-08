@@ -3,10 +3,9 @@ import itertools
 from datetime import date
 from lunchinator.models import User, Meal
 from slack_api.api import SlackApi
-from slack_api.singleton import Singleton
 
 
-class SlackSender(metaclass=Singleton):
+class SlackSender:
 
     def __init__(self):
         self._lunch_channel = os.environ['LUNCHINATOR_LUNCH_CHANNEL']

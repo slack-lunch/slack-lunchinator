@@ -1,15 +1,15 @@
 from datetime import date
 
 from recommender.recommender import Recommender
-from slack_api.sender import SlackSender
 from lunchinator.models import User, Selection, Meal, Restaurant
-from slack_api.singleton import Singleton
+from restaurants import PARSERS
+import traceback
 
 
-class Commands(metaclass=Singleton):
+class Commands:
 
-    def __init__(self):
-        self._sender = SlackSender()
+    def __init__(self, sender):
+        self._sender = sender
 
     def select_meals(self, userid: str, meal_ids: list, recommended: bool):
         user = User.objects.get_or_create(slack_id=userid)[0]
@@ -66,3 +66,30 @@ class Commands(metaclass=Singleton):
         user.enabled = False
         user.save()
         self._sender.message(userid, "Bye")
+
+    def parse_and_send_meals(self):
+        meal_cnt = Meal.objects.filter(date=date.today()).count()
+        print(f"Read {meal_cnt} meals from DB")
+
+        restaurants = Restaurant.objects.filter(enabled=True).all()
+
+        if meal_cnt == 0:
+            meals = {r: Commands._parse(r) for r in restaurants}
+            print(f"Parsed {sum(map(len, meals.values()))} meals from {len(meals)} restaurant")
+            for ms in meals.values():
+                for m in ms:
+                    m.save()
+
+        self._sender.reset()
+        for user in User.objects.filter(enabled=True).all():
+            self._sender.send_meals(user, restaurants)
+
+    @staticmethod
+    def _parse(restaurant: Restaurant) -> list:
+        try:
+            return PARSERS[restaurant.provider]().get_meals()
+        except Exception as ex:
+            print("Failed parsing " + str(restaurant))
+            print(ex)
+            traceback.print_exc()
+            return []
