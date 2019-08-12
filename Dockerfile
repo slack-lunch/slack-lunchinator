@@ -5,7 +5,8 @@ RUN apt-get update && \
  apt-get clean all && \
  rm -rf /var/lib/apt/lists/*
 
-RUN echo '0 9 * * 1-5 /usr/bin/curl http://localhost:8000/lunchinator/trigger' >/etc/cron.d/lunchinator
+RUN echo '0 9 * * 1-5 /usr/bin/curl http://localhost:8000/lunchinator/trigger' >/etc/cron.d/lunchinator && \
+    /usr/bin/crontab /etc/cron.d/lunchinator
 
 COPY requirements.txt /opt/
 RUN /usr/local/bin/pip3 install -r /opt/requirements.txt && \
@@ -21,4 +22,4 @@ COPY slack_api /opt/slack_api
 EXPOSE 8000
 WORKDIR /opt
 
-CMD cron && ./manage.py migrate && ./manage.py runserver 0.0.0.0:8000
+CMD /usr/sbin/cron && ./manage.py migrate && ./manage.py runserver 0.0.0.0:8000
