@@ -1,5 +1,8 @@
 import re
 from datetime import datetime
+from io import BytesIO
+
+from pytesseract import pytesseract
 
 from restaurants.abstract_parser import AbstractParser
 
@@ -8,6 +11,8 @@ import tempfile
 import requests
 
 from pdfminer.high_level import extract_text_to_fp
+
+from PIL import Image
 
 
 class MenickaAbstractParser(AbstractParser):
@@ -156,14 +161,6 @@ def open_url(url):
 class PerfectCanteenParser(AbstractParser):
     URL = 'http://menu.perfectcanteen.cz/pdf/27/cz/price/a3'
 
-    WEEK_DAYS_CZ = [
-        'Pondělí',
-        'Úterý',
-        'Středa',
-        'Čtvrtek',
-        'Pátek'
-    ]
-
     WEEKLY_MENU_SECTIONS = [
         'PASTA FRESCA BAR',
         'CHEF´S SPECIAL',
@@ -213,6 +210,53 @@ class PerfectCanteenParser(AbstractParser):
         meals = []
         meals.extend(self._extract_todays_menu(text))
         meals.extend(self._extract_weekly_menu(text))
+        return meals
+
+
+class HarrysRestaurantParser(AbstractParser):
+    URL = 'http://www.harrysrestaurant.cz/poledni-menu'
+
+    def _get_specialty(self, menu):
+        spec_idx = menu.index('Specialita šéfkuchaře pondělí — pátek')
+        pond_inx = menu.index('Pondělí')
+
+        return self._build_meal(' '.join(menu[spec_idx + 1:pond_inx]), None)
+
+    def _get_todays_menu(self, menu):
+        week_day = self.WEEK_DAYS_CZ[datetime.today().weekday()]
+        next_week_day = self.WEEK_DAYS_CZ[datetime.today().weekday() + 1]
+
+        start_idx = menu.index(week_day) + 1
+        end_idx = menu.index(next_week_day)
+
+        menu = menu[start_idx:end_idx]
+
+        meals = []
+
+        meal_parts = []
+        for meal_part in menu:
+            if meal_part.endswith('-'):
+                meal_part, price = meal_part.rsplit(' ', 1)
+                meal_parts.append(meal_part)
+                meals.append(self._build_meal(' '.join(meal_parts), int(price.split(',')[0])))
+                meal_parts = []
+            else:
+                meal_parts.append(meal_part)
+
+        return meals
+
+    def get_meals(self):
+        soup = self._get_soup()
+        menu_img_url = soup.find('h4').find('img')['src']
+        response = requests.get(menu_img_url)
+        img = Image.open(BytesIO(response.content))
+        menu_text = pytesseract.image_to_string(img, lang='ces')
+
+        menu = re.compile(r"([^\s].*)", re.MULTILINE).findall(menu_text)
+
+        meals = [self._get_specialty(menu)]
+        meals.extend(self._get_todays_menu(menu))
+
         return meals
 
 

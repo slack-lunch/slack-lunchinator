@@ -1,7 +1,7 @@
 from restaurants.prague import \
     EmpiriaParser, ObederiaParser, NolaParser, CoolnaParser, PotrefenaHusaParser, \
     CityTowerSodexoParser, DiCarloParser, EnterpriseParser, CorleoneParser, \
-    PankrackyRynekParser, PerfectCanteenParser
+    PankrackyRynekParser, PerfectCanteenParser, HarrysRestaurantParser
 
 _PARSER_CLASSES = [
     EmpiriaParser,
@@ -14,6 +14,7 @@ _PARSER_CLASSES = [
     EnterpriseParser,
     CorleoneParser,
     PerfectCanteenParser,
+    HarrysRestaurantParser,
     # PankrackyRynekParser
 ]
 

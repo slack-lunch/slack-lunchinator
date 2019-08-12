@@ -3,6 +3,7 @@ from requests import get
 import pycurl
 from io import BytesIO
 
+
 from lunchinator.models import Meal, Restaurant
 
 
@@ -15,6 +16,14 @@ class AbstractParser:
     OTHER_HEADERS = {
         'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8'
     }
+
+    WEEK_DAYS_CZ = [
+        'Pondělí',
+        'Úterý',
+        'Středa',
+        'Čtvrtek',
+        'Pátek'
+    ]
 
     def __init__(self):
         self._restaurant = None
