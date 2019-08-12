@@ -201,9 +201,11 @@ class PerfectCanteenParser(AbstractParser):
 
         weekly_menu = re.search('TÝDENNÍ NABÍDKA(.*PŘÍLOHY)', s).group(1)
         for start, end in zip(self.WEEKLY_MENU_SECTIONS, self.WEEKLY_MENU_SECTIONS[1:]):
-            section_meals = re.search(f'{start} *(.*){end}', weekly_menu).group(1)
-            meals.extend(self._extract_meals_from_section(section_meals))
-
+            try:
+                section_meals = re.search(f'{start} *(.*){end}', weekly_menu).group(1)
+                meals.extend(self._extract_meals_from_section(section_meals))
+            except AttributeError:
+                pass
         return meals
 
     def get_meals(self):
