@@ -143,15 +143,16 @@ class SlackSender:
                 "elements": [{"type": "button", "text": {"type": "plain_text", "text": r.name}, "value": str(r.pk), "action_id": "restaurant"+str(r.pk)} for r in restaurant_group]
             } for i, restaurant_group in enumerate(SlackSender._grouper(restaurants, 5))
         ] + [
-            {"type": "divider"},
+            {"type": "divider"}
+        ] + [
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
                     "text": "*Selected Restaurants*"
                 },
-                "fields": restaurant_fields
-            }
+                "fields": restaurant_fields_group
+            } for restaurant_fields_group in SlackSender._grouper(restaurant_fields, 10)
         ]
 
         if userid in self._restaurants_user_message:
