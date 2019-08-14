@@ -19,7 +19,9 @@ COPY restaurants /opt/restaurants
 COPY recommender /opt/recommender
 COPY slack_api /opt/slack_api
 
+RUN mkdir /opt/static
+
 EXPOSE 8000
 WORKDIR /opt
 
-CMD /usr/sbin/cron && ./manage.py migrate && ./manage.py runserver 0.0.0.0:8000
+CMD /usr/sbin/cron && ./manage.py migrate && ./manage.py collectstatic --noinput && ./manage.py runserver 0.0.0.0:8000

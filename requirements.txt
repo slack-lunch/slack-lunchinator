@@ -12,6 +12,7 @@ cffi==1.12.3
 chardet==3.0.4
 distro==1.4.0
 Django==2.2.4
+django-jet==1.0.8
 idna==2.8
 imbalanced-learn==0.4.3
 imblearn==0.0
