@@ -24,30 +24,32 @@ def endpoint(request: HttpRequest):
         actions = action["actions"]
 
         for action in actions:
-            if action["action_id"] == "erase":
-                cmd.erase_meals(userid)
-            elif action["action_id"] == "recommend":
+            action_id = action["action_id"]
+
+            if action_id == "recommend":
                 cmd.recommend_meals(userid, 5)
-            elif action["action_id"] == "restaurants":
+            elif action_id == "restaurants":
                 cmd.list_restaurants(userid)
-            elif action["action_id"] == "clear_restaurants":
-                cmd.clear_restaurants(userid)
-            elif action["action_id"] == "invite_dialog":
+            elif action_id == "invite_dialog":
                 sender.invite_dialog(trigger_id)
-            elif action["action_id"] == "print_selection":
+            elif action_id == "print_selection":
                 cmd.print_selection(userid)
-            elif action["action_id"] == "quit":
+            elif action_id == "quit":
                 cmd.quit(userid)
 
-            elif action["block_id"].startswith("restaurants"):
+            elif action_id.startswith("remove_restaurant"):
+                cmd.erase_restaurants(userid, [action["value"]])
+            elif action_id.startswith("add_restaurant"):
                 cmd.select_restaurants(userid, [action["value"]])
-            elif action["block_id"].startswith("meals"):
+            elif action_id.startswith("select_meal"):
                 cmd.select_meals(userid, [action["value"]], recommended=False)
-            elif action["block_id"].startswith("recommended_meals"):
+            elif action_id.startswith("select_recommended_meal"):
                 cmd.select_meals(userid, [action["value"]], recommended=True)
+            elif action_id.startswith("remove_meal"):
+                cmd.erase_meals(userid, [action["value"]])
 
             else:
-                print("unsupported action_id / block_id: " + action["action_id"] + " / " + action["block_id"])
+                print("unsupported action_id: " + action_id)
                 return HttpResponse(status=400)
 
     elif type == "dialog_submission":

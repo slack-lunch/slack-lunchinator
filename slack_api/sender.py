@@ -40,9 +40,9 @@ class SlackSender:
                              {"type": "divider"}
                          ] + [SlackSender._meal_voting_block(
                                 m,
-                                "meals" + str(restaurant.pk) + "_" + str(i),
-                                m.pk not in user_meals_pks
-                         ) for i, m in enumerate(meals[restaurant])]
+                                "Vote" if m.pk not in user_meals_pks else None,
+                                "select_meal"
+                         ) for m in meals[restaurant]]
                 if not meals[restaurant]:
                     blocks.append({
                         "type": "section",
@@ -71,23 +71,27 @@ class SlackSender:
             self._other_actions_user_message_sent.add(user.slack_id)
 
     def _send_other_controls(self, userid: str):
+        confirm_dialog = {
+            "title":   {"type": "plain_text", "text": "Quitting Lunchinator"},
+            "text":    {"type": "plain_text", "text": "You really mean it?"},
+            "confirm": {"type": "plain_text", "text": "oh really"},
+            "deny":    {"type": "plain_text", "text": "nope"}
+        }
         blocks = [
             {"type": "section", "text": {"type": "mrkdwn", "text": "*Other Controls*"}},
             {"type": "divider"},
             {
                 "type": "actions",
                 "elements": [
-                    {"type": "button", "text": {"type": "plain_text", "text": "erase"}, "action_id": "erase", "value": "1"},
-                    {"type": "button", "text": {"type": "plain_text", "text": "recommend"}, "action_id": "recommend", "value": "1"},
-                    {"type": "button", "text": {"type": "plain_text", "text": "my selection"}, "action_id": "print_selection", "value": "1"}
+                    {"type": "button", "text": {"type": "plain_text", "text": "recommend"}, "action_id": "recommend"},
+                    {"type": "button", "text": {"type": "plain_text", "text": "my selection"}, "action_id": "print_selection"}
                 ]
             }, {
                 "type": "actions",
                 "elements": [
-                    {"type": "button", "text": {"type": "plain_text", "text": "select restaurants"}, "action_id": "restaurants", "value": "1"},
-                    {"type": "button", "text": {"type": "plain_text", "text": "clear restaurants"}, "action_id": "clear_restaurants", "value": "1"},
-                    {"type": "button", "text": {"type": "plain_text", "text": "quit"}, "action_id": "quit", "value": "1"},
-                    {"type": "button", "text": {"type": "plain_text", "text": "invite"}, "action_id": "invite_dialog", "value": "1"}
+                    {"type": "button", "text": {"type": "plain_text", "text": "select restaurants"}, "action_id": "restaurants"},
+                    {"type": "button", "text": {"type": "plain_text", "text": "quit"}, "action_id": "quit", "style": "danger", "confirm": confirm_dialog},
+                    {"type": "button", "text": {"type": "plain_text", "text": "invite"}, "action_id": "invite_dialog"}
 
                 ]
             }
@@ -116,10 +120,10 @@ class SlackSender:
                 {"type": "divider"}
             ] + [SlackSender._meal_voting_block(
                     m,
-                    "recommended_meals" + str(i),
-                    m.pk not in user_meals_pks,
+                    "Vote" if m.pk not in user_meals_pks else None,
+                    "select_recommended_meal",
                     f"{m.restaurant.name}, score={s:.3f}"
-                 ) for i, (m, s) in enumerate(recs)]
+                 ) for m, s in recs]
 
         if user.slack_id in self._recommendations_user_message:
             ts = self._api.update_message(self._api.user_channel(user.slack_id), self._recommendations_user_message[user.slack_id], text, blocks)
@@ -128,32 +132,21 @@ class SlackSender:
         self._recommendations_user_message[user.slack_id] = ts
 
     def print_restaurants(self, userid: str, restaurants: list, selected_restaurants: list):
+        selected_restaurants_ids = {r.pk for r in selected_restaurants}
         text = "*Available Restaurants*"
-        restaurant_fields = [{"type": "plain_text", "text": f"{restaurant.name}"} for restaurant in selected_restaurants]
-        if not restaurant_fields:
-            restaurant_fields = [{"type": "plain_text", "text": "<none>"}]
-
         blocks = [
-            {"type": "section", "text": {"type": "mrkdwn", "text": text}},
-            {"type": "divider"}
-         ] + [
-            {
-                "type": "actions",
-                "block_id": "restaurants"+str(i),
-                "elements": [{"type": "button", "text": {"type": "plain_text", "text": r.name}, "value": str(r.pk), "action_id": "restaurant"+str(r.pk)} for r in restaurant_group]
-            } for i, restaurant_group in enumerate(SlackSender._grouper(restaurants, 5))
-        ] + [
-            {"type": "divider"}
-        ] + [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "*Selected Restaurants*"
-                },
-                "fields": restaurant_fields_group
-            } for restaurant_fields_group in SlackSender._grouper(restaurant_fields, 10)
-        ]
+             {"type": "section", "text": {"type": "mrkdwn", "text": text}},
+             {"type": "divider"}
+        ] + [{
+            "type": "section",
+            "text": {"type": "plain_text", "text": restaurant.name},
+            "accessory": {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Add" if restaurant.pk not in selected_restaurants_ids else "Remove"},
+                "action_id": "add_restaurant" if restaurant.pk not in selected_restaurants_ids else "remove_restaurant",
+                "value": str(restaurant.pk)
+            }
+        } for restaurant in restaurants]
 
         if userid in self._restaurants_user_message:
             ts = self._api.update_message(self._api.user_channel(userid), self._restaurants_user_message[userid], text, blocks)
@@ -187,17 +180,22 @@ class SlackSender:
 
     def post_selection(self, userid: str, meals: list):
         text = "*Your Current Selection*"
-        fields = [{
-            "type": "mrkdwn",
-            "text": f"{meal.restaurant.name}: {meal.name}{' _' + str(meal.price) + '_' if meal.price else ''}"
-        } for meal in meals]
-
-        if not fields:
-            fields = [{"type": "plain_text", "text": "<none>"}]
-
         blocks = [
-            {"type": "section", "text": {"type": "mrkdwn", "text": text}, "fields": fields}
-        ]
+             {"type": "section", "text": {"type": "mrkdwn", "text": text}},
+             {"type": "divider"}
+        ] + [SlackSender._meal_voting_block(
+            meal,
+            "Remove",
+            "remove_meal",
+            meal.restaurant.name
+        ) for meal in meals]
+
+        if not meals:
+            blocks.append({
+                "type": "section",
+                "text": {"type": "plain_text", "text": "<none>"},
+            })
+
         if userid in self._user_selection_message:
             ts = self._api.update_message(self._api.user_channel(userid), self._user_selection_message[userid], text, blocks)
         else:
@@ -208,17 +206,17 @@ class SlackSender:
         self._api.message(self._api.user_channel(userid), msg)
 
     @staticmethod
-    def _meal_voting_block(meal: Meal, block_id: str, allow_voting: bool, extra_info: str = None) -> dict:
+    def _meal_voting_block(meal: Meal, button: str, action_prefix: str, extra_info: str = None) -> dict:
         block = {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": SlackSender._meal_text(meal, extra_info)},
-            "block_id": block_id
+            "text": {"type": "mrkdwn", "text": SlackSender._meal_text(meal, extra_info)}
         }
-        if allow_voting:
+        if button:
             block["accessory"] = {
                 "type": "button",
-                "text": {"type": "plain_text", "text": "Vote"},  # "emoji": True,
-                "value": str(meal.pk)
+                "text": {"type": "plain_text", "text": button},
+                "value": str(meal.pk),
+                "action_id": action_prefix + str(meal.pk)
             }
         return block
 
@@ -230,8 +228,3 @@ class SlackSender:
         if extra_info:
             value += ", " + extra_info
         return f"{meal.name}{value}"
-
-    @staticmethod
-    def _grouper(iterable, n):
-        args = [iter(iterable)] * n
-        return ([e for e in x if e is not None] for x in itertools.zip_longest(*args))
