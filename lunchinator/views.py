@@ -70,6 +70,54 @@ def endpoint(request: HttpRequest):
 
 
 @csrf_exempt
+def slash(request: HttpRequest):
+    user_id = request.POST["user_id"]
+    command = request.POST["command"]
+    text = request.POST["text"]
+
+    if command == "/lunch":
+        if not text:
+            resp = {
+                "response_type": "ephemeral",
+                "text": "Welcome to Lunchinator! `/lunch` is for voting (`/vote A3,B5`), or recommending (`/vote "
+                        "recommend 6`). `/lunch erase` clears your selection today. There is also `/lunchrest` for "
+                        "printing (`/lunchrest`) or selecting (`/lunchrest A,B`) your favourite restaurants, "
+                        "or clearing them (`/lunchrest clear`). "
+            }
+            return HttpResponse(json.dumps(resp), content_type="application/json")
+        else:
+            if text.startswith("recommend"):
+                if len(text) > 9:
+                    try:
+                        count = int(text[9:].strip())
+                    except ValueError:
+                        return HttpResponse(
+                            json.dumps({"response_type": "ephemeral", "text": "Invalid count to recommend."}),
+                            content_type="application/json")
+                else:
+                    count = 5
+                cmd.recommend_meals(user_id, count)
+            elif text == "erase":
+                cmd.erase_meals(user_id)
+            else:
+                cmd.select_meals_by_text(user_id, text)
+
+    elif command == "/lunchrest":
+        if not text:
+            cmd.list_restaurants(user_id)
+        elif text == "clear":
+            cmd.clear_restaurants(user_id)
+        else:
+            cmd.select_restaurants_by_text(user_id, text)
+
+    else:
+        print(f"unsupported slash command: {command}, user_id = {user_id}, text = {text}")
+        return HttpResponse(status=400)
+
+    return HttpResponse()
+
+
+@csrf_exempt
 def trigger(request: HttpRequest):
     cmd.parse_and_send_meals()
     return HttpResponse()

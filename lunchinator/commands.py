@@ -13,8 +13,8 @@ class Commands:
 
     def select_meals(self, userid: str, meal_ids: list, recommended: bool):
         user = Commands._user(userid)
-
         restaurants = set()
+
         for m_id in meal_ids:
             meal = Meal.objects.get(pk=m_id)
             restaurants.add(meal.restaurant)
@@ -27,9 +27,16 @@ class Commands:
 
     def erase_meals(self, userid: str, meal_ids: list):
         user = Commands._user(userid)
+        restaurants = set()
+
         for m_id in meal_ids:
-            user.selections.filter(meal__date=date.today(), meal__pk=m_id).delete()
+            selections = user.selections.filter(meal__date=date.today(), meal__pk=m_id)
+            restaurants.update({selection.meal.restaurant for selection in selections})
+            selections.delete()
+
         self._sender.post_selections(Commands._today_selections())
+        self.print_selection(userid)
+        self._sender.send_meals(user, list(restaurants))
 
     def print_selection(self, userid: str):
         user = Commands._user(userid)
@@ -61,7 +68,7 @@ class Commands:
         user = Commands._user(userid)
 
         for r_id in restaurant_ids:
-            user.favorite_restaurants.filter(pk=r_id).delete()
+            user.favorite_restaurants.remove(Restaurant.objects.get(pk=r_id))
 
         user.save()
         self._sender.print_restaurants(user.slack_id, Commands._all_restaurants(), user.favorite_restaurants.all())
@@ -89,6 +96,14 @@ class Commands:
         self._sender.reset()
         for user in User.objects.filter(enabled=True).all():
             self._sender.send_meals(user, restaurants)
+
+    def select_meals_by_text(self, user_id: str, text: str):
+        meal_ids = text.split()  # TODO
+        # self.select_meals(user_id, meal_ids, recommended=False)
+
+    def select_restaurants_by_text(self, user_id: str, text: str):
+        restaurant_ids = text.split()  # TODO
+        # self.select_restaurants(user_id, restaurant_ids)
 
     @staticmethod
     def _all_restaurants():
