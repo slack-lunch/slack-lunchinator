@@ -27,7 +27,6 @@ Pillow==6.1.0
 pycares==3.0.0
 pycparser==2.19
 pycryptodome==3.8.2
-pycurl==7.43.0.3
 PyPDF2==1.26.0
 pytesseract==0.2.7
 python-dateutil==2.7.2

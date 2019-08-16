@@ -1,7 +1,7 @@
 FROM python:3.7-slim-stretch
 
 RUN apt-get update && \
- apt-get install -y build-essential libcurl3 libcurl4-openssl-dev libssl-dev curl cron tesseract-ocr libtesseract-dev tesseract-ocr-ces && \
+ apt-get install -y build-essential curl cron tesseract-ocr libtesseract-dev tesseract-ocr-ces && \
  apt-get clean all && \
  rm -rf /var/lib/apt/lists/*
 

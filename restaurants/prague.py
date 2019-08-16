@@ -93,38 +93,33 @@ class DiCarloParser(AbstractParser):
 
 
 class EnterpriseParser(AbstractParser):
-    # URL = 'https://www.zomato.com/KantynaEnterprise/daily-menu'
-    URL = 'http://pankrac.bigbandbiskupska.cz/restaurants/Enterprise'
+    URL = 'https://www.prague-catering.cz/provozovny/Enterprise-kantyna/Denni-menu-Enterprise/'
 
     def get_meals(self):
         soup = self._get_soup()
 
         meals = []
+        pizza = False
+        counter = 0
         for meal_tr in soup.find_all('tr'):
             try:
                 name_td, price_td = meal_tr.find_all('td')
-                meals.append(self._build_meal(name_td.text, float(price_td.text.split()[0])))
+                if len(name_td.find_all(re.compile('^h'))) > 0:
+                    pizza = "Pizza" in name_td.text
+                    counter = 0
+                    continue
+                price_re = re.search('([0-9]+)', price_td.text)
+                if price_re:
+                    price = price_re.group(1)
+                else:
+                    price = None
+
+                if (price is not None and not pizza) or (pizza and counter > 0 and counter % 2 == 0):
+                    meals.append(self._build_meal(name_td.text, float(price) if price is not None else None))
+
+                counter += 1
             except ValueError:
                 pass
-        return meals
-
-    def _get_text_zomato(self):
-        return self._get_text_by_curl()
-
-    def get_meals_zomato(self):
-        soup = self._get_soup()
-        today_menu_div = soup.find('div', {'class': 'tmi-group'})
-        for excl in today_menu_div.find_all('div', {'class': 'bold600'}):
-            excl.extract()
-        meals_divs = today_menu_div.find_all('div', {'class': 'tmi'})
-
-        meals = []
-
-        for meal_div in meals_divs[:-4:2]:
-            name = meal_div.find('div', {'class': 'tmi-name'}).text.strip()
-            price_text = meal_div.find('div', {'class': 'tmi-price'})
-            price = float(price_text.text) if price_text else None
-            meals.append(self._build_meal(name, price))
         return meals
 
 
