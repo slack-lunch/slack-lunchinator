@@ -223,18 +223,26 @@ class HarrysRestaurantParser(AbstractParser):
         return self._build_meal(' '.join(menu[spec_idx + 1:pond_inx]), None)
 
     def _get_todays_menu(self, menu):
-        week_day = self.WEEK_DAYS_CZ[datetime.today().weekday()]
-        next_week_day = self.WEEK_DAYS_CZ[datetime.today().weekday() + 1]
+        week_day_n = datetime.today().weekday()
 
+        week_day = self.WEEK_DAYS_CZ[week_day_n]
         start_idx = menu.index(week_day) + 1
-        end_idx = menu.index(next_week_day)
 
-        menu = menu[start_idx:end_idx]
+        try:
+            next_week_day = self.WEEK_DAYS_CZ[week_day_n + 1]
+            end_idx = menu.index(next_week_day)
+        except IndexError:
+            # It's Friday, Friday
+            # Gotta get down on Friday
+            # Everybody's lookin' forward to the weekend, weekend
+            end_idx = -1
+
+        today_menu = menu[start_idx:end_idx]
 
         meals = []
 
         meal_parts = []
-        for meal_part in menu:
+        for meal_part in today_menu:
             if meal_part.endswith('-'):
                 meal_part, price = meal_part.rsplit(' ', 1)
                 meal_parts.append(meal_part)
