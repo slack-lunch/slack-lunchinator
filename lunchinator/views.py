@@ -79,10 +79,13 @@ def slash(request: HttpRequest):
         if not text:
             resp = {
                 "response_type": "ephemeral",
-                "text": "Welcome to Lunchinator! `/lunch` is for voting (`/vote A3,B5`), or recommending (`/vote "
-                        "recommend 6`). `/lunch erase` clears your selection today. There is also `/lunchrest` for "
+                "text": "Welcome to Lunchinator!\n"
+                        "* `/lunch` is for voting (`/vote A3,B5`), or recommending (`/vote "
+                        "recommend 6`).\n"
+                        "* `/lunch erase A2,B7` erases your selection today.\n"
+                        "* There is also `/lunchrest` for "
                         "printing (`/lunchrest`) or selecting (`/lunchrest A,B`) your favourite restaurants, "
-                        "or clearing them (`/lunchrest clear`). "
+                        "or clearing them (`/lunchrest erase A,B`). "
             }
             return HttpResponse(json.dumps(resp), content_type="application/json")
         else:
@@ -90,6 +93,8 @@ def slash(request: HttpRequest):
                 if len(text) > 9:
                     try:
                         count = int(text[9:].strip())
+                        if count <= 0 or count > 20:
+                            raise ValueError("Invalid recommendation count")
                     except ValueError:
                         return HttpResponse(
                             json.dumps({"response_type": "ephemeral", "text": "Invalid count to recommend."}),
@@ -97,16 +102,18 @@ def slash(request: HttpRequest):
                 else:
                     count = 5
                 cmd.recommend_meals(user_id, count)
-            elif text == "erase":
-                cmd.erase_meals(user_id)
+            elif text.startswith("erase"):
+                cmd.erase_meals_by_text(user_id, text[5:].strip())
             else:
-                cmd.select_meals_by_text(user_id, text)
+                resp = cmd.select_meals_by_text(user_id, text)
+                if resp:
+                    return HttpResponse(json.dumps(resp), content_type="application/json")
 
     elif command == "/lunchrest":
         if not text:
             cmd.list_restaurants(user_id)
-        elif text == "clear":
-            cmd.clear_restaurants(user_id)
+        elif text == "erase":
+            cmd.erase_restaurants_by_text(user_id, text[5:].strip())
         else:
             cmd.select_restaurants_by_text(user_id, text)
 

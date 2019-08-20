@@ -2,14 +2,18 @@ from datetime import date
 
 from recommender.recommender import Recommender
 from lunchinator.models import User, Selection, Meal, Restaurant
+from lunchinator.text_parser import TextParser
+from slack_api.sender import SlackSender
 from restaurants import PARSERS
 import traceback
+import re
 
 
 class Commands:
 
-    def __init__(self, sender):
+    def __init__(self, sender: SlackSender):
         self._sender = sender
+        self._parser = TextParser(Commands._all_restaurants())
 
     def select_meals(self, userid: str, meal_ids: list, recommended: bool):
         user = Commands._user(userid)
@@ -98,12 +102,35 @@ class Commands:
             self._sender.send_meals(user, restaurants)
 
     def select_meals_by_text(self, user_id: str, text: str):
-        meal_ids = text.split()  # TODO
+        user = Commands._user(user_id)
+        meal_groups = TextParser.split_by_whitespace(text)
+        if re.compile('[0-9]').match(text):
+            blocks = []
+            for restaurant_prefix in meal_groups:
+                try:
+                    restaurant = self._parser.restaurant_by_prefix(restaurant_prefix)
+                    meals = restaurant.meals.filter(date=date.today()).all()
+                    user_meals_pks = {s.meal.pk for s in user.selections.filter(meal__date=date.today()).all()}
+                    blocks.extend(SlackSender.restaurant_meal_blocks(restaurant, meals, user_meals_pks))
+                except Exception as ex:
+                    blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"`{restaurant_prefix}` not found"}})
+
+            return {
+                "response_type": "ephemeral",
+                "text": "Restaurant offers",
+                "blocks": blocks
+            }
         # self.select_meals(user_id, meal_ids, recommended=False)
 
     def select_restaurants_by_text(self, user_id: str, text: str):
-        restaurant_ids = text.split()  # TODO
+        restaurant_ids = TextParser.split_by_whitespace(text)
         # self.select_restaurants(user_id, restaurant_ids)
+
+    def erase_meals_by_text(self, user_id: str, text: str):
+        meal_groups = TextParser.split_by_whitespace(text)
+
+    def erase_restaurants_by_text(self, user_id: str, text: str):
+        restaurant_ids = TextParser.split_by_whitespace(text)
 
     @staticmethod
     def _all_restaurants():

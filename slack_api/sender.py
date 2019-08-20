@@ -1,7 +1,7 @@
 import os
 import itertools
 from datetime import date
-from lunchinator.models import User, Meal
+from lunchinator.models import User, Meal, Restaurant
 from slack_api.api import SlackApi
 
 
@@ -35,19 +35,7 @@ class SlackSender:
 
         for restaurant in user.favorite_restaurants.all():
             if restaurant in meals:
-                blocks = [
-                             {"type": "section", "text": {"type": "mrkdwn", "text": f"*{restaurant.name}*"}},
-                             {"type": "divider"}
-                         ] + [SlackSender._meal_voting_block(
-                                m,
-                                "Vote" if m.pk not in user_meals_pks else None,
-                                "select_meal"
-                         ) for m in meals[restaurant]]
-                if not meals[restaurant]:
-                    blocks.append({
-                        "type": "section",
-                        "text": {"type": "plain_text", "text": "<none>"},
-                    })
+                blocks = SlackSender.restaurant_meal_blocks(restaurant, meals[restaurant], user_meals_pks)
 
                 if restaurant.pk in self._meals_user_restaurants_messages[user.slack_id]:
                     ts = self._api.update_message(
@@ -69,6 +57,23 @@ class SlackSender:
         if user.slack_id not in self._other_actions_user_message_sent:
             self._send_other_controls(user.slack_id)
             self._other_actions_user_message_sent.add(user.slack_id)
+
+    @staticmethod
+    def restaurant_meal_blocks(restaurant: Restaurant, meals: list, user_meals_pks: set):
+        blocks = [
+                     {"type": "section", "text": {"type": "mrkdwn", "text": f"*{restaurant.name}*"}},
+                     {"type": "divider"}
+        ] + [SlackSender._meal_voting_block(
+            m,
+            "Vote" if m.pk not in user_meals_pks else None,
+            "select_meal"
+        ) for m in meals]
+        if not meals:
+            blocks.append({
+                "type": "section",
+                "text": {"type": "plain_text", "text": "<none>"},
+            })
+        return blocks
 
     def _send_other_controls(self, userid: str):
         confirm_dialog = {
