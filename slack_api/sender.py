@@ -65,7 +65,7 @@ class SlackSender:
                      {"type": "divider"}
         ] + [SlackSender._meal_voting_block(
             m,
-            "Vote" if m.pk not in user_meals_pks else None,
+            "Vote" if (user_meals_pks is not None) and (m.pk not in user_meals_pks) else None,
             "select_meal"
         ) for m in meals]
         if not meals:

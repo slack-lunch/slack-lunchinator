@@ -7,6 +7,7 @@ from slack_api.sender import SlackSender
 from restaurants import PARSERS
 import traceback
 import re
+from django.core.exceptions import ObjectDoesNotExist
 
 
 class Commands:
@@ -102,17 +103,21 @@ class Commands:
             self._sender.send_meals(user, restaurants)
 
     def select_meals_by_text(self, user_id: str, text: str):
-        user = Commands._user(user_id)
+        user = Commands._user(user_id, allow_create=False)
+        if user:
+            user_meals_pks = {s.meal.pk for s in user.selections.filter(meal__date=date.today()).all()}
+        else:
+            user_meals_pks = None
+
         meal_groups = TextParser.split_by_whitespace(text)
-        if re.compile('[0-9]').match(text):
+        if not re.compile('[0-9]').match(text):
             blocks = []
             for restaurant_prefix in meal_groups:
-                try:
-                    restaurant = self._parser.restaurant_by_prefix(restaurant_prefix)
+                restaurant = self._parser.restaurant_by_prefix(restaurant_prefix)
+                if restaurant:
                     meals = restaurant.meals.filter(date=date.today()).all()
-                    user_meals_pks = {s.meal.pk for s in user.selections.filter(meal__date=date.today()).all()}
                     blocks.extend(SlackSender.restaurant_meal_blocks(restaurant, meals, user_meals_pks))
-                except Exception as ex:
+                else:
                     blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"`{restaurant_prefix}` not found"}})
 
             return {
@@ -141,8 +146,14 @@ class Commands:
         return Selection.objects.filter(meal__date=date.today()).all()
 
     @staticmethod
-    def _user(userid: str):
-        return User.objects.get_or_create(slack_id=userid)[0]
+    def _user(userid: str, allow_create: bool = True):
+        if allow_create:
+            return User.objects.get_or_create(slack_id=userid)[0]
+        else:
+            try:
+                return User.objects.get(slack_id=userid)
+            except ObjectDoesNotExist:
+                return None
 
     @staticmethod
     def _parse(restaurant: Restaurant) -> list:

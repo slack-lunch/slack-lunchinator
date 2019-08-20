@@ -88,26 +88,25 @@ def slash(request: HttpRequest):
                         "or clearing them (`/lunchrest erase A,B`). "
             }
             return HttpResponse(json.dumps(resp), content_type="application/json")
-        else:
-            if text.startswith("recommend"):
-                if len(text) > 9:
-                    try:
-                        count = int(text[9:].strip())
-                        if count <= 0 or count > 20:
-                            raise ValueError("Invalid recommendation count")
-                    except ValueError:
-                        return HttpResponse(
-                            json.dumps({"response_type": "ephemeral", "text": "Invalid count to recommend."}),
-                            content_type="application/json")
-                else:
-                    count = 5
-                cmd.recommend_meals(user_id, count)
-            elif text.startswith("erase"):
-                cmd.erase_meals_by_text(user_id, text[5:].strip())
+        elif text.startswith("recommend"):
+            if len(text) > 9:
+                try:
+                    count = int(text[9:].strip())
+                    if count <= 0 or count > 20:
+                        raise ValueError("Invalid recommendation count")
+                except ValueError:
+                    return HttpResponse(
+                        json.dumps({"response_type": "ephemeral", "text": "Invalid count to recommend."}),
+                        content_type="application/json")
             else:
-                resp = cmd.select_meals_by_text(user_id, text)
-                if resp:
-                    return HttpResponse(json.dumps(resp), content_type="application/json")
+                count = 5
+            cmd.recommend_meals(user_id, count)
+        elif text.startswith("erase"):
+            cmd.erase_meals_by_text(user_id, text[5:].strip())
+        else:
+            resp = cmd.select_meals_by_text(user_id, text)
+            if resp:
+                return HttpResponse(json.dumps(resp), content_type="application/json")
 
     elif command == "/lunchrest":
         if not text:
