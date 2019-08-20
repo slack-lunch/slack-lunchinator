@@ -3,11 +3,13 @@ from django.http import HttpRequest
 from django.views.decorators.csrf import csrf_exempt
 import json
 from lunchinator.commands import Commands
+from lunchinator.text_commands import TextCommands
 from slack_api.sender import SlackSender
 
 
 sender = SlackSender()
 cmd = Commands(sender)
+tcmd = TextCommands()
 
 
 @csrf_exempt
@@ -74,6 +76,7 @@ def slash(request: HttpRequest):
     user_id = request.POST["user_id"]
     command = request.POST["command"]
     text = request.POST["text"]
+    resp = None
 
     if command == "/lunch":
         if not text:
@@ -87,7 +90,6 @@ def slash(request: HttpRequest):
                         "printing (`/lunchrest`) or selecting (`/lunchrest A,B`) your favourite restaurants, "
                         "or clearing them (`/lunchrest erase A,B`). "
             }
-            return HttpResponse(json.dumps(resp), content_type="application/json")
         elif text.startswith("recommend"):
             if len(text) > 9:
                 try:
@@ -95,32 +97,31 @@ def slash(request: HttpRequest):
                     if count <= 0 or count > 20:
                         raise ValueError("Invalid recommendation count")
                 except ValueError:
-                    return HttpResponse(
-                        json.dumps({"response_type": "ephemeral", "text": "Invalid count to recommend."}),
-                        content_type="application/json")
+                    resp = {"response_type": "ephemeral", "text": "Invalid count to recommend."}
             else:
                 count = 5
             cmd.recommend_meals(user_id, count)
         elif text.startswith("erase"):
-            cmd.erase_meals_by_text(user_id, text[5:].strip())
+            tcmd.erase_meals(user_id, text[5:].strip())
         else:
-            resp = cmd.select_meals_by_text(user_id, text)
-            if resp:
-                return HttpResponse(json.dumps(resp), content_type="application/json")
+            resp = tcmd.select_meals(user_id, text)
 
     elif command == "/lunchrest":
         if not text:
-            cmd.list_restaurants(user_id)
+            resp = tcmd.list_restaurants(user_id)
         elif text == "erase":
-            cmd.erase_restaurants_by_text(user_id, text[5:].strip())
+            tcmd.erase_restaurants(user_id, text[5:].strip())
         else:
-            cmd.select_restaurants_by_text(user_id, text)
+            tcmd.select_restaurants(user_id, text)
 
     else:
         print(f"unsupported slash command: {command}, user_id = {user_id}, text = {text}")
         return HttpResponse(status=400)
 
-    return HttpResponse()
+    if resp:
+        return HttpResponse(json.dumps(resp), content_type="application/json")
+    else:
+        return HttpResponse()
 
 
 @csrf_exempt

@@ -137,27 +137,30 @@ class SlackSender:
         self._recommendations_user_message[user.slack_id] = ts
 
     def print_restaurants(self, userid: str, restaurants: list, selected_restaurants: list):
-        selected_restaurants_ids = {r.pk for r in selected_restaurants}
         text = "*Available Restaurants*"
-        blocks = [
-             {"type": "section", "text": {"type": "mrkdwn", "text": text}},
-             {"type": "divider"}
-        ] + [{
-            "type": "section",
-            "text": {"type": "plain_text", "text": restaurant.name},
-            "accessory": {
-                "type": "button",
-                "text": {"type": "plain_text", "text": "Add" if restaurant.pk not in selected_restaurants_ids else "Remove"},
-                "action_id": "add_restaurant" if restaurant.pk not in selected_restaurants_ids else "remove_restaurant",
-                "value": str(restaurant.pk)
-            }
-        } for restaurant in restaurants]
+        blocks = SlackSender.restaurant_blocks(text, restaurants, {r.pk for r in selected_restaurants})
 
         if userid in self._restaurants_user_message:
             ts = self._api.update_message(self._api.user_channel(userid), self._restaurants_user_message[userid], text, blocks)
         else:
             ts = self._api.message(self._api.user_channel(userid), text, blocks)
         self._restaurants_user_message[userid] = ts
+
+    @staticmethod
+    def restaurant_blocks(title: str, restaurants: list, selected_ids: set):
+        return [
+             {"type": "section", "text": {"type": "mrkdwn", "text": title}},
+             {"type": "divider"}
+        ] + [{
+            "type": "section",
+            "text": {"type": "plain_text", "text": restaurant.name},
+            "accessory": {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "Add" if restaurant.pk not in selected_ids else "Remove"},
+                "action_id": "add_restaurant" if restaurant.pk not in selected_ids else "remove_restaurant",
+                "value": str(restaurant.pk)
+            } if selected_ids else None
+        } for restaurant in restaurants]
 
     def post_selections(self, selections: list):
         restaurant_users = [(s.meal.restaurant, s.user) for s in selections]
