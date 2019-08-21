@@ -10,7 +10,7 @@ from imblearn.under_sampling import RandomUnderSampler
 
 import numpy as np
 
-from lunchinator.models import Restaurant, Meal
+from lunchinator.models import Restaurant, Meal, User
 
 import os
 
@@ -20,7 +20,7 @@ NLP_DATA_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'nlp_d
 class Recommender:
     REGEX_WORDS = r'\b\w+\b'
 
-    def __init__(self, user):
+    def __init__(self, user: User):
         self.user = user
         self._morph = self._get_morph()
         self._stopwords = self._get_stopwords()

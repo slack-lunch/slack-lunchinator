@@ -25,7 +25,7 @@ class Commands:
             selection.save()
 
         self._sender.send_meals(user, list(restaurants))
-        self._sender.post_selections(Commands._today_selections())
+        self._sender.post_selections(Commands.today_selections())
 
     def erase_meals(self, userid: str, meal_ids: list):
         user = Commands.user(userid)
@@ -36,7 +36,7 @@ class Commands:
             restaurants.update({selection.meal.restaurant for selection in selections})
             selections.delete()
 
-        self._sender.post_selections(Commands._today_selections())
+        self._sender.post_selections(Commands.today_selections())
         self.print_selection(userid)
         self._sender.send_meals(user, list(restaurants))
 
@@ -104,7 +104,7 @@ class Commands:
         return Restaurant.objects.filter(enabled=True).all()
 
     @staticmethod
-    def _today_selections():
+    def today_selections():
         return Selection.objects.filter(meal__date=date.today()).all()
 
     @staticmethod

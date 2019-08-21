@@ -120,21 +120,25 @@ class SlackSender:
     def print_recommendation(self, recs: list, user: User):
         user_meals_pks = {s.meal.pk for s in user.selections.filter(meal__date=date.today()).all()}
         text = "*Recommendations*"
-        blocks = [
-                {"type": "section", "text": {"type": "mrkdwn", "text": text}},
-                {"type": "divider"}
-            ] + [SlackSender._meal_voting_block(
-                    m,
-                    "Vote" if m.pk not in user_meals_pks else None,
-                    "select_recommended_meal",
-                    f"{m.restaurant.name}, score={s:.3f}"
-                 ) for m, s in recs]
+        blocks = SlackSender.recommendation_blocks(text, recs, user_meals_pks)
 
         if user.slack_id in self._recommendations_user_message:
             ts = self._api.update_message(self._api.user_channel(user.slack_id), self._recommendations_user_message[user.slack_id], text, blocks)
         else:
             ts = self._api.message(self._api.user_channel(user.slack_id), text, blocks)
         self._recommendations_user_message[user.slack_id] = ts
+
+    @staticmethod
+    def recommendation_blocks(title: str, recommendations: list, user_meals_pks: set):
+        return [
+                {"type": "section", "text": {"type": "mrkdwn", "text": title}},
+                {"type": "divider"}
+            ] + [SlackSender._meal_voting_block(
+                    m,
+                    "Vote" if (user_meals_pks is not None) and (m.pk not in user_meals_pks) else None,
+                    "select_recommended_meal",
+                    f"{m.restaurant.name}, score={s:.3f}"
+                 ) for m, s in recommendations]
 
     def print_restaurants(self, userid: str, restaurants: list, selected_restaurants: list):
         text = "*Available Restaurants*"

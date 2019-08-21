@@ -9,7 +9,7 @@ from slack_api.sender import SlackSender
 
 sender = SlackSender()
 cmd = Commands(sender)
-tcmd = TextCommands()
+tcmd = TextCommands(sender)
 
 
 @csrf_exempt
@@ -76,52 +76,18 @@ def slash(request: HttpRequest):
     user_id = request.POST["user_id"]
     command = request.POST["command"]
     text = request.POST["text"]
-    resp = None
 
     if command == "/lunch":
-        if not text:
-            resp = {
-                "response_type": "ephemeral",
-                "text": "Welcome to Lunchinator!\n"
-                        "* `/lunch` is for voting (`/vote A3,B5`), or recommending (`/vote "
-                        "recommend 6`).\n"
-                        "* `/lunch erase A2,B7` erases your selection today.\n"
-                        "* There is also `/lunchrest` for "
-                        "printing (`/lunchrest`) or selecting (`/lunchrest A,B`) your favourite restaurants, "
-                        "or clearing them (`/lunchrest erase A,B`). "
-            }
-        elif text.startswith("recommend"):
-            if len(text) > 9:
-                try:
-                    count = int(text[9:].strip())
-                    if count <= 0 or count > 20:
-                        raise ValueError("Invalid recommendation count")
-                except ValueError:
-                    resp = {"response_type": "ephemeral", "text": "Invalid count to recommend."}
-            else:
-                count = 5
-            cmd.recommend_meals(user_id, count)
-        elif text.startswith("erase"):
-            tcmd.erase_meals(user_id, text[5:].strip())
-        else:
-            resp = tcmd.select_meals(user_id, text)
+        resp = tcmd.lunch_cmd(user_id, text)
 
     elif command == "/lunchrest":
-        if not text:
-            resp = tcmd.list_restaurants(user_id)
-        elif text == "erase":
-            tcmd.erase_restaurants(user_id, text[5:].strip())
-        else:
-            tcmd.select_restaurants(user_id, text)
+        resp = tcmd.lunch_rest_cmd(user_id, text)
 
     else:
         print(f"unsupported slash command: {command}, user_id = {user_id}, text = {text}")
         return HttpResponse(status=400)
 
-    if resp:
-        return HttpResponse(json.dumps(resp), content_type="application/json")
-    else:
-        return HttpResponse()
+    return HttpResponse(json.dumps(resp), content_type="application/json")
 
 
 @csrf_exempt
