@@ -102,24 +102,25 @@ class EnterpriseParser(AbstractParser):
         pizza = False
         counter = 0
         for meal_tr in soup.find_all('tr'):
-            try:
-                name_td, price_td = meal_tr.find_all('td')
-                if len(name_td.find_all(re.compile('^h'))) > 0:
-                    pizza = "Pizza" in name_td.text
-                    counter = 0
-                    continue
-                price_re = re.search('([0-9]+)', price_td.text)
-                if price_re:
-                    price = price_re.group(1)
-                else:
-                    price = None
+            name_td, price_td = meal_tr.find_all('td')
+            if len(name_td.find_all(re.compile('^h'))) > 0:
+                pizza = "Pizza" in name_td.text
+                counter = 0
+                continue
+            price_re = re.search('([0-9]+)', price_td.text)
+            if price_re:
+                price = price_re.group(1)
+            else:
+                price = None
 
+            try:
                 if (price is not None and not pizza) or (pizza and counter > 0 and counter % 2 == 0):
                     meals.append(self._build_meal(name_td.text, float(price) if price is not None else None))
-
-                counter += 1
             except ValueError:
                 pass
+            else:
+                counter += 1
+
         return meals
 
 
