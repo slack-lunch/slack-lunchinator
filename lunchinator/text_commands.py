@@ -171,12 +171,17 @@ class TextCommands:
         return {
             "response_type": "ephemeral",
             "text": "Welcome to Lunchinator!\n"
-                    "* `/lunch` is for voting (`/vote A3,B5`), or recommending (`/vote "
-                    "recommend 6`).\n"
-                    "* `/lunch erase A2,B7` erases your selection today.\n"
+                    "* `/lunch` is for voting (`/lunch A3 B5`), or recommending (`/lunch recommend 6`).\n"
+                    "* If you skip numbers in voting (`/lunch A B`), only the restaurant offers are printed,"
+                    " and no voting takes place.\n"
+                    "* `/lunch erase A2 B7` erases your selection today.\n"
                     "* There is also `/lunchrest` for "
-                    "printing (`/lunchrest`) or selecting (`/lunchrest A,B`) your favourite restaurants, "
-                    "or clearing them (`/lunchrest erase A,B`). "
+                    "printing (`/lunchrest`) or selecting (`/lunchrest A B`) your favourite restaurants,"
+                    " or clearing them (`/lunchrest erase A B`).\n"
+                    "* The letters for specifying a restaurant can be any prefix of the restaurant name"
+                    " (first matching wins).\n"
+                    "* The numbers for specifying meals are their indices within the restaurant's today's offer"
+                    " (1-based)."
         }
 
     @staticmethod
