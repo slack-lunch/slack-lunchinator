@@ -179,7 +179,7 @@ class PerfectCanteenParser(AbstractParser):
 
     def _extract_meals_from_section(self, s):
         meals = []
-        for m in s.split(' Kč')[:-1]:
+        for m in re .findall('(.*? [0-9]+) Kč', s):
             name, price = self._extract_meal_and_price(m)
             meals.append(self._build_meal(name, price))
         return meals
