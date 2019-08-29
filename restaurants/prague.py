@@ -59,7 +59,7 @@ class PotrefenaHusaParser(MenickaAbstractParser):
 
 
 class CityTowerSodexoParser(AbstractParser):
-    URL = 'http://citytower.portal.sodexo.cz/en/introduction'
+    URL = 'http://citytower.portal.sodexo.cz/cs/uvod'
 
     def get_meals(self):
         soup = self._get_soup()
