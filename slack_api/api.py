@@ -1,5 +1,7 @@
 import os
 import slack
+import aiohttp
+import asyncio
 
 
 class SlackApi:
@@ -52,6 +54,20 @@ class SlackApi:
             assert response["ok"]
             self._user_channels[userid] = response["channel"]["id"]
             return response["channel"]["id"]
+
+    def send_response(self, response_url: str, response: dict):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        async def post():
+            async with aiohttp.ClientSession(
+                loop=loop, timeout=aiohttp.ClientTimeout(total=30)
+            ) as session:
+                async with session.request("POST", response_url, json=response) as resp:
+                    if resp.status != 200:
+                        raise AssertionError("Unexpected response code: " + str(resp.status))
+
+        loop.run_until_complete(asyncio.ensure_future(post()))
 
     @staticmethod
     def _encode(s: str) -> str:

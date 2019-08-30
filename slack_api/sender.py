@@ -28,13 +28,14 @@ class SlackSender:
 
     def send_meals(self, user: User, restaurants: list):
         meals = {r: r.meals.filter(date=date.today()).all() for r in restaurants}
+        favourite_restaurants = set(user.favorite_restaurants.all())
         user_meals_pks = {s.meal.pk for s in user.selections.filter(meal__date=date.today()).all()}
 
         if user.slack_id not in self._meals_user_restaurants_messages:
             self._meals_user_restaurants_messages[user.slack_id] = {}
 
-        for restaurant in user.favorite_restaurants.all():
-            if restaurant in meals:
+        for restaurant in meals.keys():
+            if (restaurant in favourite_restaurants) or (restaurant.name == Restaurant.ADHOC_NAME):
                 blocks = SlackSender.restaurant_meal_blocks(restaurant, meals[restaurant], user_meals_pks)
 
                 if restaurant.pk in self._meals_user_restaurants_messages[user.slack_id]:
@@ -50,9 +51,10 @@ class SlackSender:
 
         for restaurant_id in set(self._meals_user_restaurants_messages[user.slack_id].keys())\
                 .difference({r.pk for r in user.favorite_restaurants.all()}):
-            self._api.delete_message(self._api.user_channel(user.slack_id),
-                                     self._meals_user_restaurants_messages[user.slack_id][restaurant_id])
-            self._meals_user_restaurants_messages[user.slack_id].pop(restaurant_id)
+            if any(r.pk == restaurant_id and r.name != Restaurant.ADHOC_NAME for r in meals.keys()):
+                self._api.delete_message(self._api.user_channel(user.slack_id),
+                                         self._meals_user_restaurants_messages[user.slack_id][restaurant_id])
+                self._meals_user_restaurants_messages[user.slack_id].pop(restaurant_id)
 
         if user.slack_id not in self._other_actions_user_message_sent:
             self._send_other_controls(user.slack_id)
@@ -167,28 +169,41 @@ class SlackSender:
         } for restaurant in restaurants]
 
     def post_selections(self, selections: list):
-        restaurant_users = [(s.meal.restaurant, s.user) for s in selections]
-        key_fun = lambda rest_user: rest_user[0].name
-        restaurant_users_grouped = [(r, {ru[1].slack_id for ru in rus}) for r, rus in itertools.groupby(sorted(restaurant_users, key=key_fun), key_fun)]
+        restaurant_users = [(s.meal.restaurant, s.user) for s in selections if s.meal.restaurant.name != Restaurant.ADHOC_NAME]
         text = "*Current Selections*"
         blocks = [
              {"type": "section", "text": {"type": "mrkdwn", "text": text}},
              {"type": "divider"}
-         ] + [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{restaurant_name} _({len(user_ids)})_\n" + ", ".join([f"<@{uid}>" for uid in user_ids])
-                }
-            } for restaurant_name, user_ids in sorted(restaurant_users_grouped, key=lambda rest_users: (-len(rest_users[1]), rest_users[0]))
-        ]
+        ] + SlackSender._selections_entity_to_blocks(restaurant_users)
+
+        adhoc_meal_users = [(s.meal, s.user) for s in selections if s.meal.restaurant.name == Restaurant.ADHOC_NAME]
+        if adhoc_meal_users:
+            blocks.extend(SlackSender._selections_entity_to_blocks(adhoc_meal_users))
 
         if self._selection_message is None:
             ts = self._api.message(self._lunch_channel, text, blocks)
         else:
             ts = self._api.update_message(self._lunch_channel, self._selection_message, text, blocks)
         self._selection_message = ts
+
+    @staticmethod
+    def _selections_entity_to_blocks(entity_users: list):
+        key_fun = lambda ent_user: ent_user[0].name
+        entity_users_grouped = [
+            (entity, {entity_user[1].slack_id for entity_user in entity_users})
+            for entity, entity_users
+            in itertools.groupby(sorted(entity_users, key=key_fun), key_fun)
+        ]
+        return [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"{entity_name} _({len(user_ids)})_\n" + ", ".join([f"<@{uid}>" for uid in user_ids])
+                }
+            } for entity_name, user_ids in
+            sorted(entity_users_grouped, key=lambda entity_users: (-len(entity_users[1]), entity_users[0]))
+        ]
 
     def post_selection(self, userid: str, meals: list):
         text = "*Your Current Selection*"

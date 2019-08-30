@@ -3,6 +3,8 @@ from django.db import models
 
 
 class Restaurant(models.Model):
+    ADHOC_NAME = 'Ad-hoc options'
+
     enabled = models.BooleanField(default=True)
     name = models.CharField(max_length=255)
     provider = models.CharField(max_length=255)

@@ -1,10 +1,12 @@
 from datetime import date
 
 from lunchinator.commands import Commands
-from lunchinator.models import Selection, Meal
+from lunchinator.models import Selection, Meal, User, Restaurant
 from recommender.recommender import Recommender
 from slack_api.sender import SlackSender
 import re
+from django.http import HttpResponse
+import json
 
 
 class TextCommands:
@@ -15,7 +17,7 @@ class TextCommands:
         self._re_some_digit = re.compile('[0-9]')
         self._re_meal = re.compile(r'([^\s0-9,]+)([0-9,]+)')
 
-    def lunch_cmd(self, user_id: str, text: str):
+    def lunch_cmd(self, user_id: str, text: str, response_url: str):
         if not text:
             return TextCommands._help()
         elif text.startswith("recommend"):
@@ -31,6 +33,8 @@ class TextCommands:
             return self._recommend_meals(user_id, count)
         elif text.startswith("erase"):
             return self._erase_meals(user_id, text[5:].strip())
+        elif text.startswith("create"):
+            return ResponseWithAction({"response_type": "ephemeral", "text": "processing..."}, lambda: self._create_meal(user_id, text[6:].strip(), response_url))
         else:
             return self._select_meals(user_id, text)
 
@@ -166,6 +170,18 @@ class TextCommands:
             "blocks": SlackSender.recommendation_blocks(text, rec.get_recommendations(count), user_meals_pks)
         }
 
+    def _create_meal(self, user_id: str, meal_name: str, response_url: str):
+        user = Commands.user(user_id)
+        restaurant = Restaurant.objects.get_or_create(name=Restaurant.ADHOC_NAME, provider='None', url='', enabled=False)[0]
+        meal = Meal.objects.create(name=meal_name, price=None, restaurant=restaurant)
+        Selection.objects.create(meal=meal, user=user, recommended=False)
+
+        self._sender.post_selections(Commands.today_selections())
+        for u in User.objects.filter(enabled=True).all():
+            self._sender.send_meals(u, [restaurant])
+
+        self._sender._api.send_response(response_url, {"response_type": "ephemeral", "text": "created and voted for"})
+
     @staticmethod
     def _help():
         return {
@@ -215,3 +231,14 @@ class TextCommands:
             meals.append(all_meals[idx])
 
         return meals
+
+
+class ResponseWithAction(HttpResponse):
+
+    def __init__(self, resp, action):
+        super().__init__(json.dumps(resp), content_type="application/json")
+        self._action = action
+
+    def close(self):
+        super(ResponseWithAction, self).close()
+        self._action()

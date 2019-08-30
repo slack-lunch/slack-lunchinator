@@ -76,9 +76,10 @@ def slash(request: HttpRequest):
     user_id = request.POST["user_id"]
     command = request.POST["command"]
     text = request.POST["text"]
+    response_url = request.POST["response_url"]
 
     if command == "/lunch":
-        resp = tcmd.lunch_cmd(user_id, text)
+        resp = tcmd.lunch_cmd(user_id, text, response_url)
 
     elif command == "/lunchrest":
         resp = tcmd.lunch_rest_cmd(user_id, text)
@@ -87,7 +88,10 @@ def slash(request: HttpRequest):
         print(f"unsupported slash command: {command}, user_id = {user_id}, text = {text}")
         return HttpResponse(status=400)
 
-    return HttpResponse(json.dumps(resp), content_type="application/json")
+    if isinstance(resp, HttpResponse):
+        return resp
+    else:
+        return HttpResponse(json.dumps(resp), content_type="application/json")
 
 
 @csrf_exempt
