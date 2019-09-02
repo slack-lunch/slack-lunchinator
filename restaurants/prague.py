@@ -14,6 +14,8 @@ from pdfminer.high_level import extract_text_to_fp
 
 from PIL import Image
 
+from unidecode import unidecode
+
 
 class MenickaAbstractParser(AbstractParser):
     ENCODING = 'WINDOWS-1250'
@@ -222,12 +224,15 @@ class HarrysRestaurantParser(AbstractParser):
     def _get_todays_menu(self, menu):
         week_day_n = datetime.today().weekday()
 
-        week_day = self.WEEK_DAYS_CZ[week_day_n]
-        start_idx = menu.index(week_day) + 1
+        decoded_menu = list(map(unidecode, menu))
+        decoded_weekdays = list(map(unidecode, self.WEEK_DAYS_CZ))
+
+        week_day = decoded_weekdays[week_day_n]
+        start_idx = decoded_menu.index(week_day) + 1
 
         try:
-            next_week_day = self.WEEK_DAYS_CZ[week_day_n + 1]
-            end_idx = menu.index(next_week_day)
+            next_week_day = decoded_weekdays[week_day_n + 1]
+            end_idx = decoded_menu.index(next_week_day)
         except IndexError:
             # It's Friday, Friday
             # Gotta get down on Friday
