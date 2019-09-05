@@ -246,8 +246,8 @@ class HarrysRestaurantParser(AbstractParser):
         meal_parts = []
         for meal_part in today_menu:
             if meal_part.endswith('-'):
-                meal_part, price = meal_part.rsplit(' ', 1)
-                meal_parts.append(meal_part)
+                *meal_part, price = meal_part.rsplit(' ', 1)  # meal_part might be empty if price is on a new line
+                meal_parts.extend(meal_part)
                 meals.append(self._build_meal(' '.join(meal_parts), int(price.split(',')[0])))
                 meal_parts = []
             else:
