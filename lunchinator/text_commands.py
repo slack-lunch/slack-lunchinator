@@ -208,7 +208,7 @@ class TextCommands:
         found_meals = []
 
         for rest in chain(user_restaurants, other_restaurants):
-            for meal in rest.meals.all():
+            for meal in rest.meals.filter(date=date.today()).all():
                 normalized_name = unidecode(meal.name).lower()
                 if any(w in normalized_name for w in query_words):
                     found_meals.append(meal)
