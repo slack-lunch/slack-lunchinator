@@ -225,7 +225,8 @@ class TextCommands:
             if res_meals:
                 found_meals[rest.name] = res_meals
 
-        text = f"*Found meals for _'{query}'_*" if found_meals else f"*No {query} for you today :(*"
+        joined_query = ', '.join(query)
+        text = f"*Found meals for _'{joined_query}'_*" if found_meals else f"*No {joined_query} for you today :(*"
         return {
             "response_type": "ephemeral",
             "text": text,

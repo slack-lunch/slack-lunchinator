@@ -174,16 +174,20 @@ class SlackSender:
         meal_blocks = []
 
         for rest, meals in found_meals.items():
-            meal_blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f'*{rest}*'}})
-            for m in meals:
-                meal_blocks.append(
+            meal_blocks.extend(
+                [
+                    {"type": "section", "text": {"type": "mrkdwn", "text": f'*{rest}*'}},
+                    {"type": "divider"}
+                ] + [
                     SlackSender._meal_voting_block(
                         m,
                         "Vote" if (user_meals_pks is not None) and (m.pk not in user_meals_pks) else None,
                         "select_meal",
                         highlighted_words=query_words
                     )
-                )
+                    for m in meals
+                ]
+            )
 
         return [
                    {"type": "section", "text": {"type": "mrkdwn", "text": text}},
