@@ -180,10 +180,10 @@ class SlackSender:
             "text": {"type": "plain_text", "text": restaurant.name},
             "accessory": {
                 "type": "button",
-                "text": {"type": "plain_text", "text": "Add" if restaurant.pk not in selected_ids else "Remove"},
-                "action_id": "add_restaurant" if restaurant.pk not in selected_ids else "remove_restaurant",
+                "text": {"type": "plain_text", "text": "Add" if not selected_ids or restaurant.pk not in selected_ids else "Remove"},
+                "action_id": "add_restaurant" if not selected_ids or restaurant.pk not in selected_ids else "remove_restaurant",
                 "value": str(restaurant.pk)
-            } if selected_ids else None
+            }
         } for restaurant in restaurants]
 
     def post_selections(self, selections: list):
