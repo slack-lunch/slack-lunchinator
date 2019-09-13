@@ -214,13 +214,16 @@ class TextCommands:
 
         query_words = [unidecode(w).lower() for w in query]
 
-        found_meals = []
+        found_meals = {}
 
         for rest in chain(user_restaurants, other_restaurants):
+            res_meals = []
             for meal in rest.meals.filter(date=date.today()).all():
                 normalized_name = unidecode(meal.name).lower()
                 if any(w in normalized_name for w in query_words):
-                    found_meals.append(meal)
+                    res_meals.append(meal)
+            if res_meals:
+                found_meals[rest.name] = res_meals
 
         text = "*Found meals*" if found_meals else f"*No {query} for you today :(*"
         return {
