@@ -275,7 +275,10 @@ class SlackSender:
             value += ", " + extra_info
 
         if highlighted_words:
-            meal_name = ' '.join(f'*{w}*' if unidecode(w).lower() in highlighted_words else w for w in meal.name.split())
+            meal_name = ' '.join(
+                f'*{w}*' if any(hw in unidecode(w).lower() for hw in highlighted_words) else w
+                for w in meal.name.split()
+            )
         else:
             meal_name = meal.name
 

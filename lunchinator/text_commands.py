@@ -235,7 +235,10 @@ class TextCommands:
                     "* The letters for specifying a restaurant can be any prefix of the restaurant name"
                     " (first matching wins).\n"
                     "* The numbers for specifying meals are their indices within the restaurant's today's offer"
-                    " (1-based)."
+                    " (1-based).\n"
+                    "* `/lunch create order sushi` creates ad-hoc meal if to vote.\n"
+                    "* `/lunch search lasagna losos` searches for meals that have 'lasagna' and/or 'losos' in them."
+                    " First it displays meals from your selected restaurants and then from all the others."
         }
 
     @staticmethod
