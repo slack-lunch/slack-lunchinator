@@ -1,6 +1,9 @@
 import os
 import itertools
 from datetime import date
+
+from unidecode import unidecode
+
 from lunchinator.models import User, Meal, Restaurant
 from slack_api.api import SlackApi
 
@@ -142,6 +145,21 @@ class SlackSender:
                     f"{m.restaurant.name}, score={s:.3f}"
                  ) for m, s in recommendations]
 
+    @staticmethod
+    def search_blocks(text: str, query_words: list, meals: list, user_meals_pks: set):
+        return [
+                   {"type": "section", "text": {"type": "mrkdwn", "text": text}},
+                   {"type": "divider"}
+               ] + [
+                   SlackSender._meal_voting_block(
+                       m,
+                       "Vote" if (user_meals_pks is not None) and (m.pk not in user_meals_pks) else None,
+                       "select_meal",
+                       f"{m.restaurant.name}",
+                       highlighted_words=query_words
+                   ) for m in meals
+        ]
+
     def print_restaurants(self, userid: str, restaurants: list, selected_restaurants: list):
         text = "*Available Restaurants*"
         blocks = SlackSender.restaurant_blocks(text, restaurants, {r.pk for r in selected_restaurants})
@@ -233,10 +251,11 @@ class SlackSender:
         self._api.message(self._api.user_channel(userid), msg)
 
     @staticmethod
-    def _meal_voting_block(meal: Meal, button: str, action_prefix: str, extra_info: str = None) -> dict:
+    def _meal_voting_block(meal: Meal, button: str, action_prefix: str, extra_info: str = None,
+                           highlighted_words: list = None) -> dict:
         block = {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": SlackSender._meal_text(meal, extra_info)}
+            "text": {"type": "mrkdwn", "text": SlackSender._meal_text(meal, extra_info, highlighted_words)}
         }
         if button:
             block["accessory"] = {
@@ -248,10 +267,16 @@ class SlackSender:
         return block
 
     @staticmethod
-    def _meal_text(meal: Meal, extra_info: str) -> str:
+    def _meal_text(meal: Meal, extra_info: str, highlighted_words: list = None) -> str:
         value = ""
         if meal.price:
             value += " _" + str(meal.price) + "_"
         if extra_info:
             value += ", " + extra_info
-        return f"{meal.name}{value}"
+
+        if highlighted_words:
+            meal_name = ' '.join(f'*{w}*' if unidecode(w).lower() in highlighted_words else w for w in meal.name.split())
+        else:
+            meal_name = meal.name
+
+        return f"{meal_name}{value}"

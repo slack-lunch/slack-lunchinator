@@ -1,4 +1,5 @@
 from datetime import date
+from itertools import chain
 
 from lunchinator.commands import Commands
 from lunchinator.models import Selection, Meal, User, Restaurant
@@ -7,6 +8,8 @@ from slack_api.sender import SlackSender
 import re
 from django.http import HttpResponse
 import json
+
+from unidecode import unidecode
 
 
 class TextCommands:
@@ -34,7 +37,11 @@ class TextCommands:
         elif text.startswith("erase"):
             return self._erase_meals(user_id, text[5:].strip())
         elif text.startswith("create"):
-            return ResponseWithAction({"response_type": "ephemeral", "text": "processing..."}, lambda: self._create_meal(user_id, text[6:].strip(), response_url))
+            return ResponseWithAction({"response_type": "ephemeral", "text": "processing..."},
+                                      lambda: self._create_meal(user_id, text[6:].strip(), response_url))
+        elif text.startswith("search"):
+            cmd, query = text.split(maxsplit=1)
+            return self._search_meals(user_id, query)
         else:
             return self._select_meals(user_id, text)
 
@@ -81,7 +88,9 @@ class TextCommands:
                     meals = restaurant.meals.filter(date=date.today()).all()
                     blocks.extend(SlackSender.restaurant_meal_blocks(restaurant, meals, user_meals_pks))
                 else:
-                    blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"`{restaurant_prefix}` not found"}})
+                    blocks.append(
+                        {"type": "section", "text": {"type": "mrkdwn", "text": f"`{restaurant_prefix}` not found"}}
+                    )
 
             return {
                 "response_type": "ephemeral",
@@ -172,7 +181,8 @@ class TextCommands:
 
     def _create_meal(self, user_id: str, meal_name: str, response_url: str):
         user = Commands.user(user_id)
-        restaurant = Restaurant.objects.get_or_create(name=Restaurant.ADHOC_NAME, provider='None', url='', enabled=False)[0]
+        restaurant = \
+            Restaurant.objects.get_or_create(name=Restaurant.ADHOC_NAME, provider='None', url='', enabled=False)[0]
         meal = Meal.objects.create(name=meal_name, price=None, restaurant=restaurant)
         Selection.objects.create(meal=meal, user=user, recommended=False)
 
@@ -181,6 +191,34 @@ class TextCommands:
             self._sender.send_meals(u, [restaurant])
 
         self._sender._api.send_response(response_url, {"response_type": "ephemeral", "text": "created and voted for"})
+
+    @staticmethod
+    def _search_meals(user_id, query):
+        user = Commands.user(user_id)
+        if user:
+            user_meals_pks = {s.meal.pk for s in user.selections.filter(meal__date=date.today()).all()}
+        else:
+            user_meals_pks = None
+
+        user_restaurants = user.favorite_restaurants.all()
+        other_restaurants = Restaurant.objects.exclude(id_in=[r.id for r in user_restaurants]).all()
+
+        query_words = unidecode(query).lower().split()
+
+        found_meals = []
+
+        for rest in chain(user_restaurants, other_restaurants):
+            for meal in rest.meals.all():
+                normalized_name = unidecode(meal.name).lower()
+                if any(w in normalized_name for w in query_words):
+                    found_meals.append(meal)
+
+        text = "*Found meals*" if found_meals else f"*No {query} for you today :(*"
+        return {
+            "response_type": "ephemeral",
+            "text": text,
+            "blocks": SlackSender.search_blocks(text, query_words, found_meals, user_meals_pks)
+        }
 
     @staticmethod
     def _help():
