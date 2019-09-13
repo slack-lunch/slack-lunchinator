@@ -201,7 +201,7 @@ class TextCommands:
             user_meals_pks = None
 
         user_restaurants = user.favorite_restaurants.all()
-        other_restaurants = Restaurant.objects.exclude(id_in=[r.id for r in user_restaurants]).all()
+        other_restaurants = Restaurant.objects.exclude(id__in=[r.id for r in user_restaurants]).all()
 
         query_words = unidecode(query).lower().split()
 
