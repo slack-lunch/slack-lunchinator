@@ -23,25 +23,26 @@ class TextCommands:
     def lunch_cmd(self, user_id: str, text: str, response_url: str):
         if not text:
             return TextCommands._help()
-        elif text.startswith("recommend"):
-            if len(text) > 9:
+
+        cmd, *params = text.split()
+        if cmd == "recommend":
+            if params:
                 try:
-                    count = int(text[9:].strip())
+                    count = int(params[0])
                     if count <= 0 or count > 20:
                         raise ValueError("Invalid recommendation count")
                 except ValueError:
                     return {"response_type": "ephemeral", "text": "Invalid count to recommend."}
             else:
                 count = 5
-            return self._recommend_meals(user_id, count)
-        elif text.startswith("erase"):
-            return self._erase_meals(user_id, text[5:].strip())
-        elif text.startswith("create"):
+            return self._recommend_meals(user_id, count=count)
+        elif cmd == "erase":
+            return self._erase_meals(user_id, meal_groups=params)
+        elif cmd == "create":
             return ResponseWithAction({"response_type": "ephemeral", "text": "processing..."},
-                                      lambda: self._create_meal(user_id, text[6:].strip(), response_url))
-        elif text.startswith("search"):
-            cmd, query = text.split(maxsplit=1)
-            return self._search_meals(user_id, query)
+                                      lambda: self._create_meal(user_id, ' '.join(params), response_url))
+        elif cmd == "search":
+            return self._search_meals(user_id, query=params)
         else:
             return self._select_meals(user_id, text)
 
@@ -113,8 +114,7 @@ class TextCommands:
         # self._sender.send_meals(user, Commands.all_restaurants()) # TODO ???
         return self._list_restaurants(user_id)
 
-    def _erase_meals(self, user_id: str, text: str):
-        meal_groups = TextCommands._split_by_whitespace(text)
+    def _erase_meals(self, user_id: str, meal_groups: str):
         user = Commands.user(user_id, allow_create=False)
         if user is None:
             return {"response_type": "ephemeral", "text": "You cannot erase when you have not joined Lunchinator.\n"
@@ -203,7 +203,7 @@ class TextCommands:
         user_restaurants = user.favorite_restaurants.all()
         other_restaurants = Restaurant.objects.exclude(id__in=[r.id for r in user_restaurants]).all()
 
-        query_words = unidecode(query).lower().split()
+        query_words = [unidecode(w).lower() for w in query]
 
         found_meals = []
 
