@@ -173,7 +173,7 @@ class SlackSender:
     def search_blocks(text: str, query_words: list, found_meals: dict, user_meals_pks: set):
         meal_blocks = []
 
-        for rest, meals in found_meals:
+        for rest, meals in found_meals.items():
             meal_blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": rest}})
             for m in meals:
                 meal_blocks.append(
