@@ -316,7 +316,7 @@ class SlackSender:
     def _meal_text(meal: Meal, extra_info: str, highlighted_words: list = None) -> str:
         value = ""
         if meal.price:
-            value += f" *{meal.price}*"
+            value += f" *{int(meal.price)} Kč*"
         if extra_info:
             value += f", _{extra_info}_"
 
