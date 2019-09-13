@@ -29,7 +29,7 @@ class TextCommands:
             if params:
                 try:
                     count = int(params[0])
-                    if count <= 0 or count > 20:
+                    if not 0 < count < 20 or len(params) > 1:
                         raise ValueError("Invalid recommendation count")
                 except ValueError:
                     return {"response_type": "ephemeral", "text": "Invalid count to recommend."}
@@ -56,12 +56,15 @@ class TextCommands:
 
     def _select_meals(self, user_id: str, text: str):
         user = Commands.user(user_id, allow_create=False)
-        meal_groups = TextCommands._split_by_whitespace(text)
+        meal_groups = text.split()
 
         if self._re_some_digit.search(text):
             if user is None:
-                return {"response_type": "ephemeral", "text": "You cannot vote when you have not joined Lunchinator.\n"
-                                                              "Do so e.g. by selecting restaurants."}
+                return {
+                    "response_type": "ephemeral",
+                    "text": "You cannot vote when you have not joined Lunchinator.\n"
+                            "Do so e.g. by selecting restaurants."
+                }
 
             try:
                 meals = [meal for meal_group in meal_groups for meal in self._parse_meals(meal_group)]
@@ -69,7 +72,7 @@ class TextCommands:
                 return {"response_type": "ephemeral", "text": f"Parsing failed: {e}"}
 
             for meal in meals:
-                selection = Selection.objects.get_or_create(meal=meal, user=user)[0]
+                selection, created = Selection.objects.get_or_create(meal=meal, user=user)
                 selection.recommended = False
                 selection.save()
 
@@ -102,7 +105,7 @@ class TextCommands:
     def _select_restaurants(self, user_id: str, text: str):
         user = Commands.user(user_id, allow_create=True)
 
-        for r_prefix in TextCommands._split_by_whitespace(text):
+        for r_prefix in text.split():
             restaurant = self._restaurant_by_prefix(r_prefix)
             if restaurant is None:
                 return {"type": "section", "text": {"type": "mrkdwn", "text": f"`{r_prefix}` not found"}}
@@ -114,11 +117,14 @@ class TextCommands:
         # self._sender.send_meals(user, Commands.all_restaurants()) # TODO ???
         return self._list_restaurants(user_id)
 
-    def _erase_meals(self, user_id: str, meal_groups: str):
+    def _erase_meals(self, user_id: str, meal_groups: list):
         user = Commands.user(user_id, allow_create=False)
         if user is None:
-            return {"response_type": "ephemeral", "text": "You cannot erase when you have not joined Lunchinator.\n"
-                                                          "Do so e.g. by selecting restaurants."}
+            return {
+                "response_type": "ephemeral",
+                "text": "You cannot erase when you have not joined Lunchinator.\n"
+                        "Do so e.g. by selecting restaurants."
+            }
 
         try:
             meals = [meal for meal_group in meal_groups for meal in self._parse_meals(meal_group)]
@@ -135,10 +141,13 @@ class TextCommands:
     def _erase_restaurants(self, user_id: str, text: str):
         user = Commands.user(user_id, allow_create=False)
         if user is None:
-            return {"response_type": "ephemeral", "text": "You cannot erase when you have not joined Lunchinator.\n"
-                                                          "Do so e.g. by selecting restaurants."}
+            return {
+                "response_type": "ephemeral",
+                "text": "You cannot erase when you have not joined Lunchinator.\n"
+                        "Do so e.g. by selecting restaurants."
+            }
 
-        for r_prefix in TextCommands._split_by_whitespace(text):
+        for r_prefix in text.split():
             restaurant = self._restaurant_by_prefix(r_prefix)
             if restaurant is None:
                 return {"type": "section", "text": {"type": "mrkdwn", "text": f"`{r_prefix}` not found"}}
@@ -241,16 +250,13 @@ class TextCommands:
                     " First it displays meals from your selected restaurants and then from all the others."
         }
 
-    @staticmethod
-    def _split_by_whitespace(s: str):
-        return s.split()
-
     def _restaurant_by_prefix(self, prefix):
         p = prefix.lower()
         for r in self._restaurants:
             if r.name.lower().startswith(p):
                 return r
-        return None
+        else:
+            return None
 
     def _parse_meals(self, meal: str):
         match = self._re_meal.fullmatch(meal)
@@ -267,7 +273,7 @@ class TextCommands:
             if not index:
                 raise ValueError("Invalid syntax")
             idx = int(index) - 1
-            if idx not in range(len(all_meals)):
+            if 0 <= idx < len(all_meals):
                 raise ValueError("Index out of range")
             meals.append(all_meals[idx])
 
