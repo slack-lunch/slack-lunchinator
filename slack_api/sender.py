@@ -174,7 +174,7 @@ class SlackSender:
         meal_blocks = []
 
         for rest, meals in found_meals.items():
-            meal_blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": rest}})
+            meal_blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f'*{rest}*'}})
             for m in meals:
                 meal_blocks.append(
                     SlackSender._meal_voting_block(
