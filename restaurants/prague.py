@@ -189,7 +189,7 @@ class PerfectCanteenParser(AbstractParser):
 
     def _extract_todays_menu(self, s):
         week_day = self.WEEK_DAYS_CZ[datetime.today().weekday()]
-        todays_menu = re.search(f'{week_day}(.*)Každý den', s).group(1).split('Každý den')[0]
+        todays_menu = re.search(f'{week_day}(.*)TÝDENNÍ NABÍDKA', s).group(1).split('Každý den')[0]
         return self._extract_meals_from_section(todays_menu)
 
     def _extract_weekly_menu(self, s):
