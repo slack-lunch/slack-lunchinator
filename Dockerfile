@@ -5,7 +5,9 @@ RUN apt-get update && \
  apt-get clean all && \
  rm -rf /var/lib/apt/lists/*
 
-RUN echo '0 9 * * 1-5 /usr/bin/curl http://localhost:8000/lunchinator/trigger' >/etc/cron.d/lunchinator && \
+RUN echo 'Europe/Prague' >/etc/timezone
+
+RUN echo '0 11 * * 1-5 /usr/bin/curl http://localhost:8000/lunchinator/trigger' >/etc/cron.d/lunchinator && \
     /usr/bin/crontab /etc/cron.d/lunchinator
 
 COPY requirements.txt /opt/
