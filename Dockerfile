@@ -6,6 +6,7 @@ RUN apt-get update && \
  rm -rf /var/lib/apt/lists/*
 
 RUN echo 'Europe/Prague' >/etc/timezone
+RUN rm -f /etc/localtime && ln -s /usr/share/zoneinfo/Europe/Prague /etc/localtime
 
 RUN echo '0 11 * * 1-5 /usr/bin/curl http://localhost:8000/lunchinator/trigger' >/etc/cron.d/lunchinator && \
     /usr/bin/crontab /etc/cron.d/lunchinator
