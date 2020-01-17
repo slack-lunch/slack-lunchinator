@@ -79,5 +79,6 @@ USE_L10N = True
 
 USE_TZ = True
 
-STATIC_URL = '/static/'
+URL_PREFIX = os.getenv('URL_PREFIX', default='.')
+STATIC_URL = f'/{URL_PREFIX}/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
