@@ -8,7 +8,7 @@ RUN apt-get update && \
 RUN echo 'Europe/Prague' >/etc/timezone
 RUN rm -f /etc/localtime && ln -s /usr/share/zoneinfo/Europe/Prague /etc/localtime
 
-RUN echo '0 11 * * 1-5 /usr/bin/curl http://localhost:8000/$URL_PREFIX/lunchinator/trigger' >/etc/cron.d/lunchinator && \
+RUN echo '0 11 * * 1-5 . /opt/env && /usr/bin/curl http://localhost:8000/$URL_PREFIX/lunchinator/trigger' >/etc/cron.d/lunchinator && \
     /usr/bin/crontab /etc/cron.d/lunchinator
 
 COPY requirements.txt /opt/
@@ -27,4 +27,4 @@ RUN mkdir /opt/static
 EXPOSE 8000
 WORKDIR /opt
 
-CMD /usr/sbin/cron && ./manage.py migrate && ./manage.py collectstatic --noinput && ./manage.py runserver 0.0.0.0:8000
+CMD /bin/echo "URL_PREFIX=$URL_PREFIX" >/opt/env && /usr/sbin/cron && ./manage.py migrate && ./manage.py collectstatic --noinput && ./manage.py runserver 0.0.0.0:8000
