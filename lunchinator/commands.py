@@ -120,7 +120,7 @@ class Commands:
     @staticmethod
     def _parse(restaurant: Restaurant) -> list:
         try:
-            return PARSERS[restaurant.provider]().get_meals()
+            return PARSERS[restaurant.provider]().get_meals(restaurant)
         except Exception as ex:
             print("Failed parsing " + str(restaurant))
             print(ex)

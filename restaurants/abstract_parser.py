@@ -26,7 +26,7 @@ class AbstractParser:
     def __init__(self):
         self._restaurant = None
 
-    def get_meals(self):
+    def get_meals(self, restaurant: Restaurant):
         """Parses meals from given URL.
 
             :returns list of meals (not saved to db yet).
@@ -42,11 +42,10 @@ class AbstractParser:
         html = self._get_text()
         return bs4.BeautifulSoup(html, features="html.parser")
 
-    def _build_meal(self, name, price):
-        return Meal(name=name, price=price, restaurant=self.restaurant)
+    def _build_meal(self, name, price, restaurant: Restaurant):
+        return Meal(name=name, price=price, restaurant=restaurant)
 
-    @property
-    def restaurant(self):
-        if self._restaurant is None:
-            self._restaurant = Restaurant.objects.get(provider=self.__class__.__name__)
-        return self._restaurant
+
+class FixedOfferParser(AbstractParser):
+    def get_meals(self, restaurant: Restaurant):
+        return [self._build_meal(f'Standard offer of {restaurant.name}', None, restaurant)]

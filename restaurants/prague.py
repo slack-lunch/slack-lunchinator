@@ -4,6 +4,7 @@ from io import BytesIO
 
 from pytesseract import pytesseract
 
+from lunchinator.models import Restaurant
 from restaurants.abstract_parser import AbstractParser
 
 from contextlib import contextmanager
@@ -20,7 +21,7 @@ from unidecode import unidecode
 class MenickaAbstractParser(AbstractParser):
     ENCODING = 'WINDOWS-1250'
 
-    def get_meals(self):
+    def get_meals(self, restaurant: Restaurant):
         soup = self._get_soup()
 
         today_menu_div = soup.find('div', {'class': 'menicka'})
@@ -33,7 +34,7 @@ class MenickaAbstractParser(AbstractParser):
                 price = float(meal_li.find("div", {'class': 'cena'}).text.split()[0])
             except (IndexError, AttributeError):
                 price = 0.0
-            meals.append(self._build_meal(name, price))
+            meals.append(self._build_meal(name, price, restaurant))
         return meals
 
 
@@ -63,7 +64,7 @@ class PotrefenaHusaParser(MenickaAbstractParser):
 class CityTowerSodexoParser(AbstractParser):
     URL = 'http://citytower.portal.sodexo.cz/cs/uvod'
 
-    def get_meals(self):
+    def get_meals(self, restaurant: Restaurant):
         soup = self._get_soup()
 
         meals = []
@@ -72,14 +73,14 @@ class CityTowerSodexoParser(AbstractParser):
             name = meal_td.text
             price_text = meal_td.find_next_sibling("td").text
             price = float(price_text.split()[0]) if price_text else None
-            meals.append(self._build_meal(name, price))
+            meals.append(self._build_meal(name, price, restaurant))
         return meals
 
 
 class DiCarloParser(AbstractParser):
     URL = 'https://www.dicarlo.cz/pankrac/'
 
-    def get_meals(self):
+    def get_meals(self, restaurant: Restaurant):
         soup = self._get_soup()
         daily_menu_div = soup.find('div', {'class': 'daily-menu-section__table'})
 
@@ -91,14 +92,14 @@ class DiCarloParser(AbstractParser):
                 price = float(meal_td.find_next_sibling('td', {'class': 'food-menu__price'}).text.split()[0])
             except IndexError:
                 continue
-            meals.append(self._build_meal(name, price))
+            meals.append(self._build_meal(name, price, restaurant))
         return meals
 
 
 class EnterpriseParser(AbstractParser):
     URL = 'https://www.prague-catering.cz/provozovny/Enterprise-kantyna/Denni-menu-Enterprise/'
 
-    def get_meals(self):
+    def get_meals(self, restaurant: Restaurant):
         soup = self._get_soup()
 
         meals = []
@@ -118,7 +119,7 @@ class EnterpriseParser(AbstractParser):
 
             try:
                 if (price is not None and not pizza) or (pizza and counter > 0 and counter % 2 == 0):
-                    meals.append(self._build_meal(name_td.text, float(price) if price is not None else None))
+                    meals.append(self._build_meal(name_td.text, float(price) if price is not None else None, restaurant))
             except ValueError:
                 pass
             else:
@@ -130,7 +131,7 @@ class EnterpriseParser(AbstractParser):
 class CorleoneParser(AbstractParser):
     URL = 'https://www.corleone.cz/pizzeria-arkady/tydenni-nabidka'
 
-    def get_meals(self):
+    def get_meals(self, restaurant: Restaurant):
         soup = self._get_soup()
         today = datetime.today()
         date = f'{today.day}.{today.month}.'
@@ -143,7 +144,7 @@ class CorleoneParser(AbstractParser):
             name_td, price_td = meal_tr.find_all('td')
             name = name_td.text
             price = float(price_td.find('u').text)
-            meals.append(self._build_meal(name, price))
+            meals.append(self._build_meal(name, price, restaurant))
             meal_tr = meal_tr.find_next_sibling()
         return meals
 
@@ -180,48 +181,48 @@ class PerfectCanteenParser(AbstractParser):
         name = re.search('(.+) {2}.*', name).group(1).strip()  # remove allergens
         return name, float(price)
 
-    def _extract_meals_from_section(self, s):
+    def _extract_meals_from_section(self, s, restaurant: Restaurant):
         meals = []
         for m in re.findall('(.*? [0-9]+) Kč', s):
             name, price = self._extract_meal_and_price(m)
-            meals.append(self._build_meal(name, price))
+            meals.append(self._build_meal(name, price, restaurant))
         return meals
 
-    def _extract_todays_menu(self, s):
+    def _extract_todays_menu(self, s, restaurant: Restaurant):
         week_day = self.WEEK_DAYS_CZ[datetime.today().weekday()]
         todays_menu = re.search(f'{week_day}(.*)TÝDENNÍ NABÍDKA', s).group(1).split('Každý den')[0]
-        return self._extract_meals_from_section(todays_menu)
+        return self._extract_meals_from_section(todays_menu, restaurant)
 
-    def _extract_weekly_menu(self, s):
+    def _extract_weekly_menu(self, s, restaurant: Restaurant):
         meals = []
 
         weekly_menu = re.search('TÝDENNÍ NABÍDKA(.*PŘÍLOHY)', s).group(1)
         for start, end in zip(self.WEEKLY_MENU_SECTIONS, self.WEEKLY_MENU_SECTIONS[1:]):
             try:
                 section_meals = re.search(f'{start} *(.*){end}', weekly_menu).group(1)
-                meals.extend(self._extract_meals_from_section(section_meals))
+                meals.extend(self._extract_meals_from_section(section_meals, restaurant))
             except AttributeError:
                 pass
         return meals
 
-    def get_meals(self):
+    def get_meals(self, restaurant: Restaurant):
         text = self._get_text()
         meals = []
-        meals.extend(self._extract_todays_menu(text))
-        meals.extend(self._extract_weekly_menu(text))
+        meals.extend(self._extract_todays_menu(text, restaurant))
+        meals.extend(self._extract_weekly_menu(text, restaurant))
         return meals
 
 
 class HarrysRestaurantParser(AbstractParser):
     URL = 'http://www.harrysrestaurant.cz/poledni-menu'
 
-    def _get_specialty(self, menu):
+    def _get_specialty(self, menu, restaurant: Restaurant):
         spec_idx = menu.index('Specialita šéfkuchaře pondělí — pátek')
         pond_inx = menu.index('Pondělí')
 
-        return self._build_meal(' '.join(menu[spec_idx + 1:pond_inx]), None)
+        return self._build_meal(' '.join(menu[spec_idx + 1:pond_inx]), None, restaurant)
 
-    def _get_todays_menu(self, menu):
+    def _get_todays_menu(self, menu, restaurant: Restaurant):
         week_day_n = datetime.today().weekday()
 
         decoded_menu = list(map(unidecode, menu))
@@ -248,14 +249,14 @@ class HarrysRestaurantParser(AbstractParser):
             if meal_part.endswith('-'):
                 *meal_part, price = meal_part.rsplit(' ', 1)  # meal_part might be empty if price is on a new line
                 meal_parts.extend(meal_part)
-                meals.append(self._build_meal(' '.join(meal_parts), int(price.split(',')[0])))
+                meals.append(self._build_meal(' '.join(meal_parts), int(price.split(',')[0]), restaurant))
                 meal_parts = []
             else:
                 meal_parts.append(meal_part)
 
         return meals
 
-    def get_meals(self):
+    def get_meals(self, restaurant: Restaurant):
         soup = self._get_soup()
         menu_img_url = soup.find('h4').find('img')['src']
         response = requests.get(menu_img_url)
@@ -264,8 +265,8 @@ class HarrysRestaurantParser(AbstractParser):
 
         menu = re.compile(r"([^\s].*)", re.MULTILINE).findall(menu_text)
 
-        meals = [self._get_specialty(menu)]
-        meals.extend(self._get_todays_menu(menu))
+        meals = [self._get_specialty(menu, restaurant)]
+        meals.extend(self._get_todays_menu(menu, restaurant))
 
         return meals
 
@@ -273,5 +274,5 @@ class HarrysRestaurantParser(AbstractParser):
 class PankrackyRynekParser(AbstractParser):
     URL = ''
 
-    def get_meals(self):
+    def get_meals(self, restaurant: Restaurant):
         pass
