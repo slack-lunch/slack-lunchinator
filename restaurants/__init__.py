@@ -2,7 +2,7 @@ from restaurants.abstract_parser import FixedOfferParser
 from restaurants.prague import \
     EmpiriaParser, ObederiaParser, NolaParser, CoolnaParser, PotrefenaHusaParser, \
     CityTowerSodexoParser, DiCarloParser, EnterpriseParser, CorleoneParser, \
-    PankrackyRynekParser, PerfectCanteenParser, HarrysRestaurantParser
+    PankrackyRynekParser, PerfectCanteenParser, HarrysRestaurantParser, GlobusParser
 
 _PARSER_CLASSES = [
     EmpiriaParser,
@@ -16,7 +16,8 @@ _PARSER_CLASSES = [
     CorleoneParser,
     PerfectCanteenParser,
     HarrysRestaurantParser,
-    FixedOfferParser
+    FixedOfferParser,
+    GlobusParser
     # PankrackyRynekParser
 ]
 

@@ -16,6 +16,7 @@ from pdfminer.high_level import extract_text_to_fp
 from PIL import Image
 
 from unidecode import unidecode
+import html
 
 
 class MenickaAbstractParser(AbstractParser):
@@ -276,3 +277,26 @@ class PankrackyRynekParser(AbstractParser):
 
     def get_meals(self, restaurant: Restaurant):
         pass
+
+
+class GlobusParser(AbstractParser):
+    URL = 'https://www.globus.cz/freshpankrac.html'
+
+    def get_meals(self, restaurant: Restaurant):
+        soup = self._get_soup()
+        today_menu_div = soup.find('div', {'class': 'FreshPage-menuItem--green'})
+        meals = []
+
+        for meal_div in today_menu_div.find_all('div', {'class': 'FreshPage-menuListItem'}):
+            name = next(meal_div.stripped_strings)
+            price_span = meal_div.find("span", {'class': 'FreshPage-menuListPrice'})
+            if price_span:
+                try:
+                    price = float(price_span.text.split(html.unescape('&nbsp;'))[-1].split(',')[0].strip())
+                except ValueError:
+                    price = None
+            else:
+                price = None
+            meals.append(self._build_meal(name, price, restaurant))
+
+        return meals
