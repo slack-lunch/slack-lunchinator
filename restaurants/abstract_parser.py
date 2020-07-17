@@ -7,7 +7,6 @@ from lunchinator.models import Meal, Restaurant
 
 class AbstractParser:
     URL = None
-    RESTAURANT_NAME = None
     ENCODING = 'UTF-8'
     HEADERS = {
         'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
