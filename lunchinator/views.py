@@ -1,10 +1,15 @@
 from django.http import HttpResponse
 from django.http import HttpRequest
 from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import render
 import json
 from lunchinator.commands import Commands
 from lunchinator.text_commands import TextCommands
 from slack_api.sender import SlackSender
+from lunchinator.models import Restaurant, User
+from lunchinator import SlackUser
+import itertools
+from typing import List, Tuple
 
 
 sender = SlackSender()
@@ -16,7 +21,7 @@ tcmd = TextCommands(sender)
 def endpoint(request: HttpRequest):
     action = json.loads(request.POST["payload"])
     type = action["type"]
-    userid = action["user"]["id"]
+    user = SlackUser(action["user"]["id"], action["user"]["username"])
     # action_ts = action["action_ts"]
     # message_ts = action["message_ts"]
     # response_url = action["response_url"]
@@ -29,26 +34,26 @@ def endpoint(request: HttpRequest):
             action_id = action["action_id"]
 
             if action_id == "recommend":
-                cmd.recommend_meals(userid, 5)
+                cmd.recommend_meals(user, 5)
             elif action_id == "restaurants":
-                cmd.list_restaurants(userid)
+                cmd.list_restaurants(user)
             elif action_id == "invite_dialog":
                 sender.invite_dialog(trigger_id)
             elif action_id == "print_selection":
-                cmd.print_selection(userid)
+                cmd.print_selection(user)
             elif action_id == "quit":
-                cmd.quit(userid)
+                cmd.quit(user)
 
             elif action_id.startswith("remove_restaurant"):
-                cmd.erase_restaurants(userid, [action["value"]])
+                cmd.erase_restaurants(user, [action["value"]])
             elif action_id.startswith("add_restaurant"):
-                cmd.select_restaurants(userid, [action["value"]])
+                cmd.select_restaurants(user, [action["value"]])
             elif action_id.startswith("select_meal"):
-                cmd.select_meals(userid, [action["value"]], recommended=False)
+                cmd.select_meals(user, [action["value"]], recommended=False)
             elif action_id.startswith("select_recommended_meal"):
-                cmd.select_meals(userid, [action["value"]], recommended=True)
+                cmd.select_meals(user, [action["value"]], recommended=True)
             elif action_id.startswith("remove_meal"):
-                cmd.erase_meals(userid, [action["value"]])
+                cmd.erase_meals(user, [action["value"]])
 
             else:
                 print("unsupported action_id: " + action_id)
@@ -73,19 +78,19 @@ def endpoint(request: HttpRequest):
 
 @csrf_exempt
 def slash(request: HttpRequest):
-    user_id = request.POST["user_id"]
+    user = SlackUser(request.POST["user_id"], request.POST["user_name"])
     command = request.POST["command"]
     text = request.POST["text"]
     response_url = request.POST["response_url"]
 
     if command == "/lunch":
-        resp = tcmd.lunch_cmd(user_id, text, response_url)
+        resp = tcmd.lunch_cmd(user, text, response_url)
 
     elif command == "/lunchrest":
-        resp = tcmd.lunch_rest_cmd(user_id, text)
+        resp = tcmd.lunch_rest_cmd(user, text)
 
     else:
-        print(f"unsupported slash command: {command}, user_id = {user_id}, text = {text}")
+        print(f"unsupported slash command: {command}, user = {user}, text = {text}")
         return HttpResponse(status=400)
 
     if isinstance(resp, HttpResponse):
@@ -98,3 +103,24 @@ def slash(request: HttpRequest):
 def trigger(request: HttpRequest):
     cmd.parse_and_send_meals()
     return HttpResponse()
+
+
+def dashboard(request: HttpRequest):
+    selections = Commands.today_selections()
+    restaurant_users = [(s.meal.restaurant.name, s.user) for s in selections if s.meal.restaurant.name != Restaurant.ADHOC_NAME]
+    adhoc_meal_users = [(s.meal.name, s.user) for s in selections if s.meal.restaurant.name == Restaurant.ADHOC_NAME]
+
+    def group(name_user_list: List[Tuple[str, User]]):
+        name_users_grouped = [
+            (name, {name_user[1] for name_user in name_users})
+            for name, name_users in itertools.groupby(sorted(name_user_list, key=lambda y: y[0]), lambda y: y[0])
+        ]
+        return [{'name': name, 'users': users}
+            for name, users in
+            sorted(name_users_grouped, key=lambda name_users: (-len(name_users[1]), name_users[0]))
+        ]
+
+    context = {
+        'selections': group(restaurant_users) + group(adhoc_meal_users),
+    }
+    return render(request, 'dashboard.html', context=context)

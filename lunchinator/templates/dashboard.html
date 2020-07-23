@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Lunchinator</title>
+</head>
+<body onload="setRefresh();">
+    <script>
+        function setRefresh() {
+            setTimeout("location.reload(true);", 20000);
+        }
+    </script>
+    <h1>Lunchinator</h1>
+    <ul>
+    {% for selection in selections %}
+      <li>
+        {{selection.name}} ({{selection.users|length}})
+        <ul>
+          {% for user in selection.users %}
+            <li>{{user.name|default:user.slack_id}}</li>
+          {% endfor %}
+        </ul>
+      </li>
+    {% endfor %}
+    </ul>
+</body>
+</html>

@@ -2,9 +2,11 @@ from datetime import date
 
 from recommender.recommender import Recommender
 from lunchinator.models import User, Selection, Meal, Restaurant
+from lunchinator import SlackUser
 from slack_api.sender import SlackSender
 from restaurants import PARSERS
 import traceback
+from typing import Optional, List
 from django.core.exceptions import ObjectDoesNotExist
 
 
@@ -13,8 +15,8 @@ class Commands:
     def __init__(self, sender: SlackSender):
         self._sender = sender
 
-    def select_meals(self, userid: str, meal_ids: list, recommended: bool):
-        user = Commands.user(userid)
+    def select_meals(self, slack_user: SlackUser, meal_ids: list, recommended: bool):
+        user = Commands.user(slack_user)
         restaurants = set()
 
         for m_id in meal_ids:
@@ -27,8 +29,8 @@ class Commands:
         self._sender.send_meals(user, list(restaurants))
         self._sender.post_selections(Commands.today_selections())
 
-    def erase_meals(self, userid: str, meal_ids: list):
-        user = Commands.user(userid)
+    def erase_meals(self, slack_user: SlackUser, meal_ids: list):
+        user = Commands.user(slack_user)
         restaurants = set()
 
         for m_id in meal_ids:
@@ -37,25 +39,25 @@ class Commands:
             selections.delete()
 
         self._sender.post_selections(Commands.today_selections())
-        self.print_selection(userid)
+        self.print_selection(slack_user)
         self._sender.send_meals(user, list(restaurants))
 
-    def print_selection(self, userid: str):
-        user = Commands.user(userid)
+    def print_selection(self, slack_user: SlackUser):
+        user = Commands.user(slack_user)
         meals = [s.meal for s in user.selections.filter(meal__date=date.today()).all()]
         self._sender.post_selection(user.slack_id, meals)
 
-    def recommend_meals(self, userid: str, number: int):
-        user = Commands.user(userid)
+    def recommend_meals(self, slack_user: SlackUser, number: int):
+        user = Commands.user(slack_user)
         rec = Recommender(user)
         self._sender.print_recommendation(rec.get_recommendations(number), user)
 
-    def list_restaurants(self, userid: str):
-        user = Commands.user(userid)
-        self._sender.print_restaurants(userid, Commands.all_restaurants(), user.favorite_restaurants.all())
+    def list_restaurants(self, slack_user: SlackUser):
+        user = Commands.user(slack_user)
+        self._sender.print_restaurants(user.slack_id, Commands.all_restaurants(), user.favorite_restaurants.all())
 
-    def select_restaurants(self, userid: str, restaurant_ids: list):
-        user = Commands.user(userid)
+    def select_restaurants(self, slack_user: SlackUser, restaurant_ids: list):
+        user = Commands.user(slack_user)
 
         for r_id in restaurant_ids:
             restaurant = Restaurant.objects.get(pk=r_id)
@@ -66,8 +68,8 @@ class Commands:
         self._sender.print_restaurants(user.slack_id, Commands.all_restaurants(), user.favorite_restaurants.all())
         self._sender.send_meals(user, Commands.all_restaurants())
 
-    def erase_restaurants(self, userid: str, restaurant_ids: list):
-        user = Commands.user(userid)
+    def erase_restaurants(self, slack_user: SlackUser, restaurant_ids: list):
+        user = Commands.user(slack_user)
 
         for r_id in restaurant_ids:
             user.favorite_restaurants.remove(Restaurant.objects.get(pk=r_id))
@@ -76,11 +78,11 @@ class Commands:
         self._sender.print_restaurants(user.slack_id, Commands.all_restaurants(), user.favorite_restaurants.all())
         self._sender.send_meals(user, Commands.all_restaurants())
 
-    def quit(self, userid: str):
-        user = Commands.user(userid)
+    def quit(self, slack_user: SlackUser):
+        user = Commands.user(slack_user)
         user.enabled = False
         user.save()
-        self._sender.message(userid, "Bye")
+        self._sender.message(user.slack_id, "Bye")
 
     def parse_and_send_meals(self):
         meal_cnt = Meal.objects.filter(date=date.today()).count()
@@ -104,18 +106,22 @@ class Commands:
         return Restaurant.objects.filter(enabled=True).all()
 
     @staticmethod
-    def today_selections():
+    def today_selections() -> List[Selection]:
         return Selection.objects.filter(meal__date=date.today()).all()
 
     @staticmethod
-    def user(userid: str, allow_create: bool = True):
+    def user(slack_user: SlackUser, allow_create: bool = True) -> Optional[User]:
         if allow_create:
-            return User.objects.get_or_create(slack_id=userid)[0]
+            user = User.objects.get_or_create(slack_id=slack_user.user_id)[0]
         else:
             try:
-                return User.objects.get(slack_id=userid)
+                user = User.objects.get(slack_id=slack_user.user_id)
             except ObjectDoesNotExist:
                 return None
+        if slack_user.name is not None and user.name is None:
+            user.name = slack_user.name
+            user.save()
+        return user
 
     @staticmethod
     def _parse(restaurant: Restaurant) -> list:

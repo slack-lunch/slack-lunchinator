@@ -3,6 +3,7 @@ from itertools import chain
 
 from lunchinator.commands import Commands
 from lunchinator.models import Selection, Meal, User, Restaurant
+from lunchinator import SlackUser
 from recommender.recommender import Recommender
 from slack_api.sender import SlackSender
 import re
@@ -20,7 +21,7 @@ class TextCommands:
         self._re_some_digit = re.compile('[0-9]')
         self._re_meal = re.compile(r'([^\s0-9,]+)([0-9,]+)')
 
-    def lunch_cmd(self, user_id: str, text: str, response_url: str):
+    def lunch_cmd(self, slack_user: SlackUser, text: str, response_url: str):
         if not text:
             return TextCommands._help()
 
@@ -35,27 +36,27 @@ class TextCommands:
                     return {"response_type": "ephemeral", "text": "Invalid count to recommend."}
             else:
                 count = 5
-            return self._recommend_meals(user_id, count=count)
+            return self._recommend_meals(slack_user, count=count)
         elif cmd == "erase":
-            return self._erase_meals(user_id, meal_groups=params)
+            return self._erase_meals(slack_user, meal_groups=params)
         elif cmd == "create":
             return ResponseWithAction({"response_type": "ephemeral", "text": "processing..."},
-                                      lambda: self._create_meal(user_id, ' '.join(params), response_url))
+                                      lambda: self._create_meal(slack_user, ' '.join(params), response_url))
         elif cmd == "search":
-            return self._search_meals(user_id, query=params)
+            return self._search_meals(slack_user, query=params)
         else:
-            return self._select_meals(user_id, text)
+            return self._select_meals(slack_user, text)
 
-    def lunch_rest_cmd(self, user_id: str, text: str):
+    def lunch_rest_cmd(self, slack_user: SlackUser, text: str):
         if not text:
-            return self._list_restaurants(user_id)
+            return self._list_restaurants(slack_user)
         elif text.startswith("erase"):
-            return self._erase_restaurants(user_id, text[5:].strip())
+            return self._erase_restaurants(slack_user, text[5:].strip())
         else:
-            return self._select_restaurants(user_id, text)
+            return self._select_restaurants(slack_user, text)
 
-    def _select_meals(self, user_id: str, text: str):
-        user = Commands.user(user_id, allow_create=False)
+    def _select_meals(self, slack_user: SlackUser, text: str):
+        user = Commands.user(slack_user, allow_create=False)
         meal_groups = text.split()
 
         if self._re_some_digit.search(text):
@@ -102,8 +103,8 @@ class TextCommands:
                 "blocks": blocks
             }
 
-    def _select_restaurants(self, user_id: str, text: str):
-        user = Commands.user(user_id, allow_create=True)
+    def _select_restaurants(self, slack_user: SlackUser, text: str):
+        user = Commands.user(slack_user, allow_create=True)
 
         for r_prefix in text.split():
             restaurant = self._restaurant_by_prefix(r_prefix)
@@ -115,10 +116,10 @@ class TextCommands:
         user.save()
 
         # self._sender.send_meals(user, Commands.all_restaurants()) # TODO ???
-        return self._list_restaurants(user_id)
+        return self._list_restaurants(slack_user)
 
-    def _erase_meals(self, user_id: str, meal_groups: list):
-        user = Commands.user(user_id, allow_create=False)
+    def _erase_meals(self, slack_user: SlackUser, meal_groups: list):
+        user = Commands.user(slack_user, allow_create=False)
         if user is None:
             return {
                 "response_type": "ephemeral",
@@ -138,8 +139,8 @@ class TextCommands:
         self._sender.post_selections(Commands.today_selections())
         return {"response_type": "ephemeral", "text": "erased"}
 
-    def _erase_restaurants(self, user_id: str, text: str):
-        user = Commands.user(user_id, allow_create=False)
+    def _erase_restaurants(self, slack_user: SlackUser, text: str):
+        user = Commands.user(slack_user, allow_create=False)
         if user is None:
             return {
                 "response_type": "ephemeral",
@@ -156,10 +157,10 @@ class TextCommands:
         user.save()
 
         # self._sender.send_meals(user, Commands.all_restaurants()) # TODO ???
-        return self._list_restaurants(user_id)
+        return self._list_restaurants(slack_user)
 
-    def _list_restaurants(self, user_id: str):
-        user = Commands.user(user_id, allow_create=False)
+    def _list_restaurants(self, slack_user: SlackUser):
+        user = Commands.user(slack_user, allow_create=False)
         if user:
             selected_restaurants_ids = {r.pk for r in user.favorite_restaurants.all()}
         else:
@@ -172,8 +173,8 @@ class TextCommands:
             "blocks": SlackSender.restaurant_blocks(text, Commands.all_restaurants(), selected_restaurants_ids)
         }
 
-    def _recommend_meals(self, user_id: str, count: int):
-        user = Commands.user(user_id, allow_create=False)
+    def _recommend_meals(self, slack_user: SlackUser, count: int):
+        user = Commands.user(slack_user, allow_create=False)
         rec = Recommender(user)
 
         if user:
@@ -188,8 +189,8 @@ class TextCommands:
             "blocks": SlackSender.recommendation_blocks(text, rec.get_recommendations(count), user_meals_pks)
         }
 
-    def _create_meal(self, user_id: str, meal_name: str, response_url: str):
-        user = Commands.user(user_id)
+    def _create_meal(self, slack_user: SlackUser, meal_name: str, response_url: str):
+        user = Commands.user(slack_user)
         restaurant = \
             Restaurant.objects.get_or_create(name=Restaurant.ADHOC_NAME, provider='None', url='', enabled=False)[0]
         meal = Meal.objects.create(name=meal_name, price=None, restaurant=restaurant)
@@ -202,8 +203,8 @@ class TextCommands:
         self._sender._api.send_response(response_url, {"response_type": "ephemeral", "text": "created and voted for"})
 
     @staticmethod
-    def _search_meals(user_id, query):
-        user = Commands.user(user_id)
+    def _search_meals(slack_user: SlackUser, query: str):
+        user = Commands.user(slack_user)
         if user:
             user_meals_pks = {s.meal.pk for s in user.selections.filter(meal__date=date.today()).all()}
         else:

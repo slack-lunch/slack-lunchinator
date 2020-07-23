@@ -24,12 +24,13 @@ class User(AbstractBaseUser):
     slack_id = models.CharField(max_length=20)
     enabled = models.BooleanField(default=True)
     favorite_restaurants = models.ManyToManyField(Restaurant)
+    name = models.CharField(max_length=255, null=True)
 
     class Meta:
         verbose_name_plural = 'Users (with favorite restaurants)'
 
     def __str__(self):
-        return f'User: {self.get_username()}'
+        return f'User: {self.get_username()} ({self.name})'
 
 
 class Meal(models.Model):
