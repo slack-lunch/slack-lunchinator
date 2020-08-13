@@ -109,7 +109,7 @@ class TextCommands:
         for r_prefix in text.split():
             restaurant = self._restaurant_by_prefix(r_prefix)
             if restaurant is None:
-                return {"type": "section", "text": {"type": "mrkdwn", "text": f"`{r_prefix}` not found"}}
+                return {"response_type": "ephemeral", "text": f"`{r_prefix}` not found"}
             user.favorite_restaurants.add(restaurant)
 
         user.enabled = True
@@ -151,7 +151,7 @@ class TextCommands:
         for r_prefix in text.split():
             restaurant = self._restaurant_by_prefix(r_prefix)
             if restaurant is None:
-                return {"type": "section", "text": {"type": "mrkdwn", "text": f"`{r_prefix}` not found"}}
+                return {"response_type": "ephemeral", "text": f"`{r_prefix}` not found"}
             user.favorite_restaurants.remove(restaurant)
 
         user.save()
