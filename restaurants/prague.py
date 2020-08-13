@@ -300,3 +300,32 @@ class GlobusParser(AbstractParser):
             meals.append(self._build_meal(name, price, restaurant))
 
         return meals
+
+
+class PolygonParser(AbstractParser):
+    URL = 'http://www.polygon-canteen.cz/'
+
+    def get_meals(self, restaurant: Restaurant):
+        soup = self._get_soup()
+        obedy = soup.find('li', {'id': 'page_obedy'})
+        meals = []
+        week_day = self.WEEK_DAYS_CZ[datetime.today().weekday()]
+        started = False
+        for tr in obedy.find_all('tr'):
+            if started:
+                if any(wd in tr.text for wd in self.WEEK_DAYS_CZ):
+                    break
+                tds = tr.find_all('td')
+                if len(tds) >= 4 and tds[1].text.strip():
+                    name = tds[1].text.strip()
+                    try:
+                        price = float(tds[3].text.strip().split()[0].strip())
+                    except ValueError:
+                        price = None
+
+                    meals.append(self._build_meal(name, price, restaurant))
+            else:
+                if week_day in tr.text:
+                    started = True
+
+        return meals
