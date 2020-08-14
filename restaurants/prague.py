@@ -316,7 +316,7 @@ class PolygonParser(AbstractParser):
                 if any(wd in tr.text for wd in self.WEEK_DAYS_CZ):
                     break
                 tds = tr.find_all('td')
-                if len(tds) >= 4 and tds[1].text.strip():
+                if len(tds) >= 4 and tds[1].text.strip() and tds[0].text.strip():
                     name = tds[1].text.strip()
                     try:
                         price = float(tds[3].text.strip().split()[0].strip())
