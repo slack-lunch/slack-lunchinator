@@ -7,7 +7,7 @@ from slack_api.sender import SlackSender
 from restaurants import PARSERS
 import traceback
 from typing import Optional, List
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 
 
 class Commands:
@@ -100,6 +100,24 @@ class Commands:
         self._sender.reset()
         for user in User.objects.filter(enabled=True).all():
             self._sender.send_meals(user, restaurants)
+
+    def parse_and_send_meals_for_restaurant(self, restaurant_name: str) -> str:
+        try:
+            restaurant = Restaurant.objects.get(name=restaurant_name)
+        except (ObjectDoesNotExist, MultipleObjectsReturned):
+            return 'Restaurant does not exist or is not unique'
+        meal_cnt = Meal.objects.filter(date=date.today(), restaurant=restaurant).count()
+        print(f"Read {meal_cnt} meals from DB for {restaurant}")
+
+        if meal_cnt == 0:
+            meals = Commands._parse(restaurant)
+            print(f"Parsed {len(meals)} meals from {restaurant}")
+            for m in meals:
+                m.save()
+
+        for user in User.objects.filter(enabled=True).all():
+            self._sender.send_meals(user, [restaurant])
+        return ''
 
     @staticmethod
     def all_restaurants():

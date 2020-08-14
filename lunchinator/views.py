@@ -101,6 +101,11 @@ def slash(request: HttpRequest):
 
 @csrf_exempt
 def trigger(request: HttpRequest):
+    if 'restaurant' in request.GET:
+        restaurant = request.GET['restaurant']
+        resp = cmd.parse_and_send_meals_for_restaurant(restaurant)
+        return HttpResponse(bytes(resp, encoding='utf8'))
+
     cmd.parse_and_send_meals()
     return HttpResponse()
 
