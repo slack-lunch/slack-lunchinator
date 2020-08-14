@@ -320,7 +320,7 @@ class PolygonParser(AbstractParser):
                     name = tds[1].text.strip()
                     try:
                         price = float(tds[3].text.strip().split()[0].strip())
-                    except ValueError:
+                    except (ValueError, IndexError):
                         price = None
 
                     meals.append(self._build_meal(name, price, restaurant))
