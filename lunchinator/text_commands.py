@@ -162,7 +162,7 @@ class TextCommands:
     def _list_restaurants(self, slack_user: SlackUser):
         user = Commands.user(slack_user, allow_create=False)
         if user:
-            selected_restaurants_ids = {r.pk for r in user.favorite_restaurants.all()}
+            selected_restaurants_ids = {r.pk for r in user.all_favorite_restaurants()}
         else:
             selected_restaurants_ids = None
 
@@ -210,7 +210,7 @@ class TextCommands:
         else:
             user_meals_pks = None
 
-        user_restaurants = user.favorite_restaurants.all()
+        user_restaurants = user.all_favorite_restaurants()
         other_restaurants = Restaurant.objects.exclude(id__in=[r.id for r in user_restaurants]).all()
 
         query_words = [unidecode(w).lower() for w in query]

@@ -32,6 +32,9 @@ class User(AbstractBaseUser):
     def __str__(self):
         return f'User: {self.get_username()} ({self.name})'
 
+    def all_favorite_restaurants(self):
+        return self.favorite_restaurants.filter(enabled=True).all()
+
 
 class Meal(models.Model):
     date = models.DateField(auto_now=True)

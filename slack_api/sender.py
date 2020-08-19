@@ -31,7 +31,7 @@ class SlackSender:
 
     def send_meals(self, user: User, restaurants: list):
         meals = {r: r.meals.filter(date=date.today()).all() for r in restaurants}
-        favourite_restaurants = set(user.favorite_restaurants.all())
+        favourite_restaurants = set(user.all_favorite_restaurants())
         user_meals_pks = {s.meal.pk for s in user.selections.filter(meal__date=date.today()).all()}
 
         if user.slack_id not in self._meals_user_restaurants_messages:
@@ -53,7 +53,7 @@ class SlackSender:
                 self._meals_user_restaurants_messages[user.slack_id][restaurant.pk] = ts
 
         for restaurant_id in set(self._meals_user_restaurants_messages[user.slack_id].keys()) \
-                .difference({r.pk for r in user.favorite_restaurants.all()}):
+                .difference({r.pk for r in favourite_restaurants}):
             if any(r.pk == restaurant_id and r.name != Restaurant.ADHOC_NAME for r in meals.keys()):
                 self._api.delete_message(
                     self._api.user_channel(user.slack_id),

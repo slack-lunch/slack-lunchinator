@@ -54,7 +54,7 @@ class Commands:
 
     def list_restaurants(self, slack_user: SlackUser):
         user = Commands.user(slack_user)
-        self._sender.print_restaurants(user.slack_id, Commands.all_restaurants(), user.favorite_restaurants.all())
+        self._sender.print_restaurants(user.slack_id, Commands.all_restaurants(), user.all_favorite_restaurants())
 
     def select_restaurants(self, slack_user: SlackUser, restaurant_ids: list):
         user = Commands.user(slack_user)
@@ -65,7 +65,7 @@ class Commands:
 
         user.enabled = True
         user.save()
-        self._sender.print_restaurants(user.slack_id, Commands.all_restaurants(), user.favorite_restaurants.all())
+        self._sender.print_restaurants(user.slack_id, Commands.all_restaurants(), user.all_favorite_restaurants())
         self._sender.send_meals(user, Commands.all_restaurants())
 
     def erase_restaurants(self, slack_user: SlackUser, restaurant_ids: list):
@@ -75,7 +75,7 @@ class Commands:
             user.favorite_restaurants.remove(Restaurant.objects.get(pk=r_id))
 
         user.save()
-        self._sender.print_restaurants(user.slack_id, Commands.all_restaurants(), user.favorite_restaurants.all())
+        self._sender.print_restaurants(user.slack_id, Commands.all_restaurants(), user.all_favorite_restaurants())
         self._sender.send_meals(user, Commands.all_restaurants())
 
     def quit(self, slack_user: SlackUser):
