@@ -50,7 +50,7 @@ class SlackApi:
         if userid in self._user_channels:
             return self._user_channels[userid]
         else:
-            response = self._client().im_open(user=userid)
+            response = self._client().conversations_open(users=userid)
             assert response["ok"]
             self._user_channels[userid] = response["channel"]["id"]
             return response["channel"]["id"]
