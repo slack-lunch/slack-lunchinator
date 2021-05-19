@@ -21,7 +21,7 @@ tcmd = TextCommands(sender)
 def endpoint(request: HttpRequest):
     action = json.loads(request.POST["payload"])
     type = action["type"]
-    user = SlackUser(action["user"]["id"], action["user"]["username"])
+    user = SlackUser(action["user"]["id"], action["user"]["name"])
     # action_ts = action["action_ts"]
     # message_ts = action["message_ts"]
     # response_url = action["response_url"]
