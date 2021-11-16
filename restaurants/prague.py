@@ -329,3 +329,20 @@ class PolygonParser(AbstractParser):
                     started = True
 
         return meals
+
+
+class BramboryParser(AbstractParser):
+    URL = 'https://www.bramborynapankraci.cz/'
+
+    def get_meals(self, restaurant: Restaurant):
+        soup = self._get_soup()
+        menu = soup.find('div', {'class': 'denninabidka'})
+        meals = []
+        for food, price in zip(menu.find_all('h4', {'class': 'foodbox-item'}),
+                               menu.find_all('span', {'class': 'price'})):
+            try:
+                price = float(price.text.strip().split(',', 1)[0])
+            except Exception:
+                price = 0.0
+            meals.append(self._build_meal(food.text.strip(), price, restaurant))
+        return meals
