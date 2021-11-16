@@ -71,11 +71,7 @@ class SlackSender:
                      {"type": "section", "text": {"type": "mrkdwn", "text": f"*{restaurant.name}*"}},
                      {"type": "divider"}
                  ] + [
-                     SlackSender._meal_voting_block(
-                         m,
-                         "Vote" if (user_meals_pks is not None) and (m.pk not in user_meals_pks) else None,
-                         "select_meal"
-                     ) for m in meals
+                     SlackSender._meal_voting_block(m, (user_meals_pks is not None) and (m.pk not in user_meals_pks)) for m in meals
                  ]
         if not meals:
             blocks.append({
@@ -161,12 +157,9 @@ class SlackSender:
                    {"type": "section", "text": {"type": "mrkdwn", "text": title}},
                    {"type": "divider"}
                ] + [
-                   SlackSender._meal_voting_block(
-                       m,
-                       "Vote" if (user_meals_pks is not None) and (m.pk not in user_meals_pks) else None,
-                       "select_recommended_meal",
-                       f"{m.restaurant.name}, score={s:.3f}"
-                   ) for m, s in recommendations
+                   SlackSender._meal_voting_block(m, (user_meals_pks is not None) and (m.pk not in user_meals_pks),
+                                                  recommended=True, extra_info=f"{m.restaurant.name}, score={s:.3f}")
+                   for m, s in recommendations
                ]
 
     @staticmethod
@@ -179,12 +172,9 @@ class SlackSender:
                     {"type": "section", "text": {"type": "mrkdwn", "text": f'*{rest}*'}},
                     {"type": "divider"}
                 ] + [
-                    SlackSender._meal_voting_block(
-                        m,
-                        "Vote" if (user_meals_pks is not None) and (m.pk not in user_meals_pks) else None,
-                        "select_meal",
-                        highlighted_words=query_words
-                    )
+                    SlackSender._meal_voting_block(m,
+                                                   (user_meals_pks is not None) and (m.pk not in user_meals_pks),
+                                                   highlighted_words=query_words)
                     for m in meals
                 ]
             )
@@ -269,7 +259,7 @@ class SlackSender:
                      {"type": "section", "text": {"type": "mrkdwn", "text": text}},
                      {"type": "divider"}
                  ] + [
-                     SlackSender._meal_voting_block(meal, "Remove", "remove_meal", meal.restaurant.name)
+                     SlackSender._meal_voting_block(meal, button_add=False, extra_info=meal.restaurant.name)
                      for meal in meals
                  ]
 
@@ -297,19 +287,25 @@ class SlackSender:
         messages_dict[user_id] = ts
 
     @staticmethod
-    def _meal_voting_block(meal: Meal, button: str, action_prefix: str, extra_info: str = None,
+    def _meal_voting_block(meal: Meal,
+                           button_add: bool,
+                           recommended: bool = False,
+                           extra_info: str = None,
                            highlighted_words: list = None) -> dict:
+        if button_add:
+            action = "select_recommended_meal" if recommended else "select_meal"
+        else:
+            action = "remove_meal"
         block = {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": SlackSender._meal_text(meal, extra_info, highlighted_words)}
-        }
-        if button:
-            block["accessory"] = {
+            "text": {"type": "mrkdwn", "text": SlackSender._meal_text(meal, extra_info, highlighted_words)},
+            "accessory": {
                 "type": "button",
-                "text": {"type": "plain_text", "text": button},
+                "text": {"type": "plain_text", "text": ("Vote" if button_add else "Unvote")},
                 "value": str(meal.pk),
-                "action_id": action_prefix + str(meal.pk)
+                "action_id": action + str(meal.pk)
             }
+        }
         return block
 
     @staticmethod
