@@ -14,30 +14,33 @@ class Commands:
 
     def __init__(self, sender: SlackSender):
         self._sender = sender
+        self._recommendations = {}
 
-    def select_meals(self, slack_user: SlackUser, meal_ids: list, recommended: bool):
+    def select_meal(self, slack_user: SlackUser, meal_id: str, recommended: bool):
         user = Commands.user(slack_user)
         restaurants = set()
 
-        for m_id in meal_ids:
-            meal = Meal.objects.get(pk=m_id)
-            restaurants.add(meal.restaurant)
-            selection = Selection.objects.get_or_create(meal=meal, user=user)[0]
-            selection.recommended = recommended
-            selection.save()
+        meal = Meal.objects.get(pk=meal_id)
+        restaurants.add(meal.restaurant)
+        selection = Selection.objects.get_or_create(meal=meal, user=user)[0]
+        selection.recommended = recommended
+        selection.save()
 
+        if recommended:
+            self._sender.print_recommendation(self._recommendations[user.slack_id], user)
         self._sender.send_meals(user, list(restaurants))
         self._sender.post_selections(Commands.today_selections())
 
-    def erase_meals(self, slack_user: SlackUser, meal_ids: list):
+    def erase_meal(self, slack_user: SlackUser, meal_id: str, recommended: bool):
         user = Commands.user(slack_user)
         restaurants = set()
 
-        for m_id in meal_ids:
-            selections = user.selections.filter(meal__date=date.today(), meal__pk=m_id)
-            restaurants.update({selection.meal.restaurant for selection in selections})
-            selections.delete()
+        selections = user.selections.filter(meal__date=date.today(), meal__pk=meal_id)
+        restaurants.update({selection.meal.restaurant for selection in selections})
+        selections.delete()
 
+        if recommended:
+            self._sender.print_recommendation(self._recommendations[user.slack_id], user)
         self._sender.post_selections(Commands.today_selections())
         self.print_selection(slack_user)
         self._sender.send_meals(user, list(restaurants))
@@ -50,29 +53,29 @@ class Commands:
     def recommend_meals(self, slack_user: SlackUser, number: int):
         user = Commands.user(slack_user)
         rec = Recommender(user)
-        self._sender.print_recommendation(rec.get_recommendations(number), user)
+        recs = rec.get_recommendations(number)
+        self._recommendations[user.slack_id] = recs
+        self._sender.print_recommendation(recs, user)
 
     def list_restaurants(self, slack_user: SlackUser):
         user = Commands.user(slack_user)
         self._sender.print_restaurants(user.slack_id, Commands.all_restaurants(), user.all_favorite_restaurants())
 
-    def select_restaurants(self, slack_user: SlackUser, restaurant_ids: list):
+    def select_restaurant(self, slack_user: SlackUser, restaurant_id: str):
         user = Commands.user(slack_user)
 
-        for r_id in restaurant_ids:
-            restaurant = Restaurant.objects.get(pk=r_id)
-            user.favorite_restaurants.add(restaurant)
+        restaurant = Restaurant.objects.get(pk=restaurant_id)
+        user.favorite_restaurants.add(restaurant)
 
         user.enabled = True
         user.save()
         self._sender.print_restaurants(user.slack_id, Commands.all_restaurants(), user.all_favorite_restaurants())
         self._sender.send_meals(user, Commands.all_restaurants())
 
-    def erase_restaurants(self, slack_user: SlackUser, restaurant_ids: list):
+    def erase_restaurant(self, slack_user: SlackUser, restaurant_id: str):
         user = Commands.user(slack_user)
 
-        for r_id in restaurant_ids:
-            user.favorite_restaurants.remove(Restaurant.objects.get(pk=r_id))
+        user.favorite_restaurants.remove(Restaurant.objects.get(pk=restaurant_id))
 
         user.save()
         self._sender.print_restaurants(user.slack_id, Commands.all_restaurants(), user.all_favorite_restaurants())
@@ -98,6 +101,7 @@ class Commands:
                     m.save()
 
         self._sender.reset()
+        self._recommendations = {}
         for user in User.objects.filter(enabled=True).all():
             self._sender.send_meals(user, restaurants)
 

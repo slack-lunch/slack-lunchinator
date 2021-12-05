@@ -45,15 +45,17 @@ def endpoint(request: HttpRequest):
                 cmd.quit(user)
 
             elif action_id.startswith("remove_restaurant"):
-                cmd.erase_restaurants(user, [action["value"]])
+                cmd.erase_restaurant(user, action["value"])
             elif action_id.startswith("add_restaurant"):
-                cmd.select_restaurants(user, [action["value"]])
+                cmd.select_restaurant(user, action["value"])
             elif action_id.startswith("select_meal"):
-                cmd.select_meals(user, [action["value"]], recommended=False)
+                cmd.select_meal(user, action["value"], recommended=False)
             elif action_id.startswith("select_recommended_meal"):
-                cmd.select_meals(user, [action["value"]], recommended=True)
+                cmd.select_meal(user, action["value"], recommended=True)
             elif action_id.startswith("remove_meal"):
-                cmd.erase_meals(user, [action["value"]])
+                cmd.erase_meal(user, action["value"], recommended=False)
+            elif action_id.startswith("remove_recommended_meal"):
+                cmd.erase_meal(user, action["value"], recommended=True)
 
             else:
                 print("unsupported action_id: " + action_id)
