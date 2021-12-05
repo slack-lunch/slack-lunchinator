@@ -295,7 +295,7 @@ class SlackSender:
         if button_add:
             action = "select_recommended_meal" if recommended else "select_meal"
         else:
-            action = "remove_meal"
+            action = "remove_recommended_meal" if recommended else "remove_meal"
         block = {
             "type": "section",
             "text": {"type": "mrkdwn", "text": SlackSender._meal_text(meal, extra_info, highlighted_words)},
