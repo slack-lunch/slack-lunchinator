@@ -2,6 +2,7 @@ import os
 import slack
 import aiohttp
 import asyncio
+from typing import Optional
 
 
 class SlackApi:
@@ -13,26 +14,30 @@ class SlackApi:
         self._user_channels = {}
         self._client = lambda: slack.WebClient(token=os.environ['LUNCHINATOR_TOKEN'])
 
-    def message(self, channel: str, text: str, blocks: list = None) -> str:
-        response = self._client().chat_postMessage(text=SlackApi._encode(text), channel=channel, blocks=blocks)
-        assert response["ok"]
-        return response["ts"]
+    def message(self, channel: str, text: str, blocks: list = None) -> Optional[str]:
+        try:
+            response = self._client().chat_postMessage(text=SlackApi._encode(text), channel=channel, blocks=blocks)
+            assert response["ok"]
+            return response["ts"]
+        except Exception as ex:
+            print(f"Failed to send message for {channel}, blocks={len(blocks)}: {ex}")
+            return None
 
     def update_message(self, channel: str, ts: str, text: str, blocks: list = None) -> str:
         try:
             response = self._client().chat_update(text=SlackApi._encode(text), channel=channel, blocks=blocks, ts=ts)
             assert response["ok"]
             return ts
-        except:
-            print(f"Failed to update message {ts} for {channel}, sending as new")
+        except Exception as ex:
+            print(f"Failed to update message {ts} for {channel}, sending as new, exception={ex}")
             return self.message(channel, text, blocks)
 
     def delete_message(self, channel: str, ts: str):
         try:
             response = self._client().chat_delete(channel=channel, ts=ts)
             assert response["ok"]
-        except:
-            print(f"Failed to delete message {ts} for {channel}")
+        except Exception as ex:
+            print(f"Failed to delete message {ts} for {channel}: {ex}")
 
     def user_dialog(self, trigger_id: str):
         self._client().dialog_open(dialog={

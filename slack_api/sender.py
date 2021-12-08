@@ -73,6 +73,11 @@ class SlackSender:
                  ] + [
                      SlackSender._meal_voting_block(m, (user_meals_pks is not None) and (m.pk not in user_meals_pks)) for m in meals
                  ]
+        if len(blocks) > 50:
+            blocks = blocks[:49] + [{
+                    "type": "section",
+                    "text": {"type": "plain_text", "text": "<... more than 50 ...>"},
+            }]
         if not meals:
             blocks.append({
                 "type": "section",
