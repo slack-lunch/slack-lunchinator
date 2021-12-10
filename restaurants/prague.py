@@ -106,7 +106,13 @@ class EnterpriseParser(AbstractParser):
         meals = []
         pizza = False
         counter = 0
+        start_of_day_menu = False
         for meal_tr in soup.find_all('tr'):
+            if meal_tr.text.startswith('DENNÍ NABÍDKA'):
+                start_of_day_menu = True
+            if not start_of_day_menu:
+                continue
+
             name_td, price_td = meal_tr.find_all('td')
             if len(name_td.find_all(re.compile('^h'))) > 0:
                 pizza = "Pizza" in name_td.text
