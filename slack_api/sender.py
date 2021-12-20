@@ -9,6 +9,7 @@ from slack_api.api import SlackApi
 
 
 class SlackSender:
+    max_blocks = 50
 
     def __init__(self):
         self._lunch_channel = os.environ['LUNCHINATOR_LUNCH_CHANNEL']
@@ -67,6 +68,12 @@ class SlackSender:
 
     @staticmethod
     def restaurant_meal_blocks(restaurant: Restaurant, meals: list, user_meals_pks: set):
+        if len(meals) + 2 > SlackSender.max_blocks:
+            return [{
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"Error: *{restaurant.name}* contains too many meals!"},
+            }]
+
         blocks = [
                      {"type": "section", "text": {"type": "mrkdwn", "text": f"*{restaurant.name}*"}},
                      {"type": "divider"}
