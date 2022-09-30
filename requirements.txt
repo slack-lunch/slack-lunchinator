@@ -16,7 +16,7 @@ django-jet==1.0.8
 idna==2.8
 imbalanced-learn==0.4.3
 imblearn==0.0
-joblib==0.13.2
+joblib==1.2.0
 kombu==4.6.3
 majka==0.7
 multidict==4.5.2
