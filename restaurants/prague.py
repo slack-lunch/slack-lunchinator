@@ -352,3 +352,26 @@ class BramboryParser(AbstractParser):
                 price = 0.0
             meals.append(self._build_meal(food.text.strip(), price, restaurant))
         return meals
+
+
+class CityCanteen(AbstractParser):
+    URL = 'https://www.freshandtasty.cz/cz/firmy/city-canteen/menu/obedy'
+
+    def get_meals(self, restaurant: Restaurant):
+        soup = self._get_soup()
+        menu = soup.find('section', {'class': 'whole-menu'})
+        today = datetime.today().strftime(' %-d. %-m.')
+        meals = []
+        for h in menu.find_all('h2', {'class': 'meal__header'}):
+            if today in h.text:
+                for item in h.parent.find_all('div', {'class': 'meal__item'}):
+                    food = item.find('div', {'class': 'meal__item--article meal__item--second'}).find('p', {'class': 'meal__item--article'}).text.strip()
+                    price_str = item.find('div', {'class': 'meal__prices'}).find('p', {'class': 'meal__item--third'}).text.strip()
+                    price_re = re.search('([0-9]+)', price_str)
+                    if price_re:
+                        price = price_re.group(1)
+                    else:
+                        price = None
+                    meals.append(self._build_meal(food, price, restaurant))
+                break
+        return meals

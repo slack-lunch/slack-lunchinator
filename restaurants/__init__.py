@@ -3,7 +3,7 @@ from restaurants.prague import \
     EmpiriaParser, ObederiaParser, NolaParser, CoolnaParser, PotrefenaHusaParser, \
     CityTowerSodexoParser, DiCarloParser, EnterpriseParser, CorleoneParser, \
     PankrackyRynekParser, PerfectCanteenParser, HarrysRestaurantParser, GlobusParser,\
-    PolygonParser, BramboryParser
+    PolygonParser, BramboryParser, CityCanteen
 
 _PARSER_CLASSES = [
     EmpiriaParser,
@@ -20,7 +20,8 @@ _PARSER_CLASSES = [
     FixedOfferParser,
     GlobusParser,
     PolygonParser,
-    BramboryParser
+    BramboryParser,
+    CityCanteen
 ]
 
 PARSERS = {

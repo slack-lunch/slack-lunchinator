@@ -1,4 +1,4 @@
-FROM python:3.7-slim-bullseye
+FROM python:3.11-slim-bullseye
 
 RUN apt-get update && \
  apt-get install -y build-essential curl cron tesseract-ocr libtesseract-dev tesseract-ocr-ces && \
